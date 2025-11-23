@@ -30,6 +30,8 @@ export interface Novel {
   rating: number;
   updatedAt: string;
   isWeeklyFeatured?: boolean;
+  offerPrice?: number; // Optional offer price (e.g. for bulk buy or promo)
+  isFree?: boolean; // If true, overrides chapter paid status
 }
 
 export interface Chapter {
@@ -73,4 +75,5 @@ export interface SiteSettings {
   showPromo: boolean;
   enablePayments: boolean;
   showDemoCredentials: boolean;
+  showChapterSummary: boolean; // New setting
 }

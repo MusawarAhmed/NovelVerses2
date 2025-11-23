@@ -52,14 +52,18 @@ export const Reader: React.FC = () => {
       setComments(MockBackendService.getComments(c.id));
       
       // Logic:
-      // If Not Premium -> Unlocked
-      // If Premium:
+      // If Not Premium OR Novel is Free -> Unlocked
+      // If Premium AND Novel not Free:
       //    If Payments Enabled -> Unlocked if Logged In AND Purchased
       //    If Payments Disabled -> Unlocked if Logged In (Global Override only skips payment, not login)
       
-      const isPremium = c.isPaid;
-      const isLoggedIn = !!user;
+      const isNovelFree = !!n.isFree;
+      const isPremium = c.isPaid && !isNovelFree;
       const paymentsEnabled = settings.enablePayments;
+      
+      // CRITICAL FIX: Fetch fresh user data from DB to avoid stale context state issues
+      const currentUser = user ? MockBackendService.getUser(user.id) : null;
+      const isLoggedIn = !!currentUser;
 
       let isUnlocked = !isPremium; // Free chapters always unlocked
 
@@ -69,7 +73,8 @@ export const Reader: React.FC = () => {
              isUnlocked = isLoggedIn;
           } else {
              // If payments on, require login + purchase (or admin)
-             isUnlocked = isLoggedIn && (user.purchasedChapters.includes(c.id) || user.role === 'admin');
+             // Check against the FRESH user object from DB
+             isUnlocked = isLoggedIn && (currentUser?.purchasedChapters.includes(c.id) || currentUser?.role === 'admin');
           }
       }
 
@@ -78,16 +83,17 @@ export const Reader: React.FC = () => {
       setScrollProgress(0); // Reset progress on chapter change
       setNewComment('');
 
-      // Save Reading History if user is logged in
-      if (user) {
-        MockBackendService.saveReadingHistory(user.id, novelId, chapterId);
+      // Save Reading History if user is logged in (using fresh user data logic)
+      if (currentUser) {
+        MockBackendService.saveReadingHistory(currentUser.id, novelId, chapterId);
       }
 
     } else {
+      // Chapter might not exist if ID changed or invalid
       navigate('/');
     }
     window.scrollTo(0, 0);
-  }, [novelId, chapterId, user?.id, user?.role, user?.purchasedChapters.length, navigate]); 
+  }, [novelId, chapterId, user?.id, user?.purchasedChapters.length, navigate]); // Depend on user ID/Purchases to re-run check
 
   // Scroll Listener for Percentage
   useEffect(() => {
@@ -105,16 +111,12 @@ export const Reader: React.FC = () => {
   const handlePurchase = () => {
     if (!user) return navigate('/auth', { state: { from: location.pathname } });
     
-    // If we are here, user is logged in.
-    // If locked is true, it implies payments MUST be enabled and user hasn't bought it.
-    // (Because if payments were disabled, it would be unlocked for logged in user)
-    
     if (!chapter) return;
 
     const success = MockBackendService.purchaseChapter(user.id, chapter.id);
     if (success) {
       setLocked(false);
-      refreshUser();
+      refreshUser(); // Update global context
       alert("Chapter purchased successfully!");
     } else {
       alert("Insufficient coins! Please top up.");
@@ -183,6 +185,9 @@ export const Reader: React.FC = () => {
   // Settings check for display text
   const settings = MockBackendService.getSiteSettings();
 
+  // Calculate Display Price
+  const effectivePrice = (novel.offerPrice && novel.offerPrice > 0) ? novel.offerPrice : chapter.price;
+
   return (
     <div className={`min-h-screen relative ${isSepia ? 'bg-[#f4ecd8] text-[#5b4636]' : 'bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-300'}`}>
       
@@ -202,8 +207,8 @@ export const Reader: React.FC = () => {
                 <div className="text-sm font-mono font-bold opacity-70 hidden sm:block">
                     {scrollProgress.toFixed(0)}%
                 </div>
-                {/* AI Summary - Only show if unlocked */}
-                {!locked && (
+                {/* AI Summary - Only show if unlocked AND enabled in settings */}
+                {!locked && settings.showChapterSummary && (
                     <ScaleButton onClick={handleSummarize} className="hidden sm:flex items-center gap-1 text-xs font-medium px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors">
                         <Sparkles size={14} /> {summarizing ? 'Thinking...' : 'AI Summary'}
                     </ScaleButton>
@@ -257,7 +262,7 @@ export const Reader: React.FC = () => {
             <h3 className="text-xl font-bold mb-2">Locked Chapter</h3>
             <p className="text-slate-500 mb-6 max-w-xs mx-auto">
                 {!settings.enablePayments && !user 
-                    ? "Please login to read this chapter." 
+                    ? "Please login to read this premium chapter." 
                     : "Support the author and unlock this chapter to continue reading."}
             </p>
             <ScaleButton 
@@ -266,7 +271,7 @@ export const Reader: React.FC = () => {
             >
               {!settings.enablePayments && !user 
                   ? "Login to Read" 
-                  : `Unlock for ${chapter.price} Coins`}
+                  : `Unlock for ${effectivePrice} Coins`}
             </ScaleButton>
           </FadeIn>
         ) : (
@@ -364,7 +369,9 @@ export const Reader: React.FC = () => {
                                         <div className="space-y-1">
                                             {groupedChapters[vol].map(ch => {
                                                 // Calculate locking for TOC items individually
-                                                const isChPremium = ch.isPaid;
+                                                const isNovelFree = !!novel.isFree;
+                                                const isChPremium = ch.isPaid && !isNovelFree;
+                                                
                                                 const isChOwned = !isChPremium || (user && (user.purchasedChapters.includes(ch.id) || user.role === 'admin')) || (!settings.enablePayments && !!user);
                                                 const isChLocked = !isChOwned;
 

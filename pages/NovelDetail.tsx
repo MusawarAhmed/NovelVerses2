@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useContext, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { MockBackendService } from '../services/mockBackend';
@@ -6,6 +5,7 @@ import { Novel, Chapter, SiteSettings } from '../types';
 import { AppContext } from '../App';
 import { BookOpen, Bookmark, List, Lock, Unlock, Eye, TrendingUp, Star, Edit, Layers } from 'lucide-react';
 import { FadeIn, ScaleButton } from '../components/Anim';
+import { SEO } from '../components/SEO';
 
 export const NovelDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -98,6 +98,8 @@ export const NovelDetail: React.FC = () => {
 
   return (
     <div className="bg-slate-50 dark:bg-slate-950 min-h-screen pb-20">
+      <SEO title={novel.title} description={novel.description.substring(0, 160)} />
+      
       {/* Header Background */}
       <div className="relative h-64 md:h-80 overflow-hidden">
           <div className="absolute inset-0">
@@ -195,9 +197,13 @@ export const NovelDetail: React.FC = () => {
                                   <h3 className="text-sm font-bold uppercase text-slate-400 mb-3 tracking-wider">Tags</h3>
                                   <div className="flex flex-wrap gap-2">
                                       {novel.tags.map(tag => (
-                                          <span key={tag} className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm rounded-full">
+                                          <Link 
+                                            key={tag} 
+                                            to={`/search?q=${tag}`}
+                                            className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm rounded-full hover:bg-primary hover:text-white dark:hover:bg-primary dark:hover:text-white transition-colors"
+                                          >
                                               #{tag}
-                                          </span>
+                                          </Link>
                                       ))}
                                   </div>
                               </div>
@@ -230,17 +236,16 @@ export const NovelDetail: React.FC = () => {
                                           </h3>
                                           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
                                               {groupedChapters[vol].map((chapter) => {
-                                                  const isPremium = chapter.isPaid;
+                                                  const isNovelFree = !!novel.isFree;
+                                                  const isPremium = chapter.isPaid && !isNovelFree;
                                                   const isLoggedIn = !!user;
                                                   const paymentsEnabled = settings?.enablePayments;
 
-                                                  let isOwned = !isPremium; // Free is always owned
+                                                  let isOwned = !isPremium; 
                                                   if (isPremium) {
                                                       if (!paymentsEnabled) {
-                                                          // Payments off: Owned if logged in
                                                           isOwned = isLoggedIn;
                                                       } else {
-                                                          // Payments on: Owned if logged in + purchased
                                                           isOwned = isLoggedIn && (user?.purchasedChapters.includes(chapter.id) || user?.role === 'admin');
                                                       }
                                                   }

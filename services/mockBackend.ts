@@ -15,7 +15,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 1250000,
     rating: 4.9,
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-    isWeeklyFeatured: true
+    isWeeklyFeatured: true,
+    isFree: false
   },
   {
     id: '2',
@@ -29,7 +30,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 84000,
     rating: 4.7,
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    isWeeklyFeatured: true
+    isWeeklyFeatured: true,
+    isFree: false
   },
   {
     id: '8',
@@ -43,7 +45,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 2150000,
     rating: 4.8,
     updatedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 mins ago
-    isWeeklyFeatured: true
+    isWeeklyFeatured: true,
+    isFree: false
   },
   {
     id: '5',
@@ -57,7 +60,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 670000,
     rating: 4.6,
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    isWeeklyFeatured: true
+    isWeeklyFeatured: true,
+    isFree: false
   },
   {
     id: '9',
@@ -71,7 +75,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 450000,
     rating: 4.5,
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(),
-    isWeeklyFeatured: true
+    isWeeklyFeatured: true,
+    isFree: false
   },
 
   // --- Fanfics ---
@@ -87,7 +92,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 890000,
     rating: 4.8,
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
-    isWeeklyFeatured: false
+    isWeeklyFeatured: false,
+    isFree: true
   },
   {
     id: '7',
@@ -101,7 +107,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 550000,
     rating: 4.3,
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10).toISOString(),
-    isWeeklyFeatured: false
+    isWeeklyFeatured: false,
+    isFree: false
   },
   {
     id: '10',
@@ -115,7 +122,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 320000,
     rating: 4.6,
     updatedAt: new Date().toISOString(),
-    isWeeklyFeatured: false
+    isWeeklyFeatured: false,
+    isFree: false
   },
 
   // --- Rising / High Quality ---
@@ -131,7 +139,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 45000,
     rating: 4.9,
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
-    isWeeklyFeatured: false
+    isWeeklyFeatured: false,
+    isFree: false
   },
   {
     id: '6',
@@ -145,7 +154,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 32000,
     rating: 4.8,
     updatedAt: new Date().toISOString(),
-    isWeeklyFeatured: false
+    isWeeklyFeatured: false,
+    isFree: false
   },
   {
     id: '11',
@@ -159,7 +169,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 28000,
     rating: 4.7,
     updatedAt: new Date().toISOString(),
-    isWeeklyFeatured: false
+    isWeeklyFeatured: false,
+    isFree: false
   },
   {
     id: '12',
@@ -173,7 +184,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 15000,
     rating: 4.6,
     updatedAt: new Date().toISOString(),
-    isWeeklyFeatured: false
+    isWeeklyFeatured: false,
+    isFree: false
   },
   
   // --- Filler / Rankings Material ---
@@ -189,7 +201,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 900000,
     rating: 4.5,
     updatedAt: new Date(Date.now() - 1000 * 60).toISOString(), // 1 min ago
-    isWeeklyFeatured: false
+    isWeeklyFeatured: false,
+    isFree: false
   },
   {
     id: '14',
@@ -203,7 +216,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 750000,
     rating: 4.4,
     updatedAt: new Date().toISOString(),
-    isWeeklyFeatured: false
+    isWeeklyFeatured: false,
+    isFree: false
   },
   {
     id: '15',
@@ -217,7 +231,8 @@ const MOCK_NOVELS: Novel[] = [
     views: 1200000,
     rating: 4.7,
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 200).toISOString(),
-    isWeeklyFeatured: false
+    isWeeklyFeatured: false,
+    isFree: false
   }
 ];
 
@@ -314,6 +329,7 @@ const DEFAULT_SITE_SETTINGS: SiteSettings = {
     showPromo: true,
     enablePayments: true,
     showDemoCredentials: true,
+    showChapterSummary: true, // Default true
 };
 
 // Generate random comments
@@ -349,13 +365,26 @@ const generateComments = (): Comment[] => {
 
 export const MockBackendService = {
   init: () => {
-    if (!localStorage.getItem('nv_novels')) {
-      localStorage.setItem('nv_novels', JSON.stringify(MOCK_NOVELS));
+    const storedNovelsStr = localStorage.getItem('nv_novels');
+    let shouldRefresh = false;
+
+    // Logic: If no data, OR if stored data is stale (less items than we have in codebase), refresh.
+    if (!storedNovelsStr) {
+        shouldRefresh = true;
+    } else {
+        const storedNovels = JSON.parse(storedNovelsStr);
+        if (storedNovels.length < MOCK_NOVELS.length) {
+            shouldRefresh = true;
+        }
     }
-    
-    // FIX: Only generate chapters if they don't exist.
-    // Previously this ran every time, overwriting data with random IDs/counts.
-    if (!localStorage.getItem('nv_chapters')) {
+
+    if (shouldRefresh) {
+      localStorage.setItem('nv_novels', JSON.stringify(MOCK_NOVELS));
+      // Regenerate chapters for the full list
+      const newChapters = generateChaptersForNovels(MOCK_NOVELS);
+      localStorage.setItem('nv_chapters', JSON.stringify(newChapters));
+    } else if (!localStorage.getItem('nv_chapters')) {
+        // Edge case: Novels exist but chapters deleted?
         const currentNovels = JSON.parse(localStorage.getItem('nv_novels') || '[]');
         const newChapters = generateChaptersForNovels(currentNovels);
         localStorage.setItem('nv_chapters', JSON.stringify(newChapters));
@@ -508,11 +537,9 @@ export const MockBackendService = {
     const user = users.find(u => u.email === email);
     
     if (user) {
-      // If user has no password (legacy), allow logic, otherwise check password
       if (user.password && password) {
         return user.password === password ? user : undefined;
       }
-      // Fallback for legacy users with no password (optional: force update)
       return user;
     }
     return undefined;
@@ -578,25 +605,41 @@ export const MockBackendService = {
     const chapter = MockBackendService.getChapter(chapterId);
     if (!chapter) return false;
 
+    // --- NOVEL OVERRIDE LOGIC START ---
+    const novel = MockBackendService.getNovelById(chapter.novelId);
+    let price = chapter.price;
+    
+    if (novel) {
+        if (novel.isFree) {
+            price = 0;
+        } else if (novel.offerPrice && novel.offerPrice > 0) {
+            price = novel.offerPrice;
+        }
+    }
+    // --- NOVEL OVERRIDE LOGIC END ---
+
     const user = users[userIndex];
     if (user.purchasedChapters.includes(chapterId)) return true;
-    if (user.coins < chapter.price) return false;
+    if (user.coins < price) return false;
 
-    user.coins -= chapter.price;
+    user.coins -= price;
     user.purchasedChapters.push(chapterId);
     users[userIndex] = user;
     localStorage.setItem('nv_users', JSON.stringify(users));
 
-    const transactions: Transaction[] = JSON.parse(localStorage.getItem('nv_transactions') || '[]');
-    transactions.unshift({
-        id: Math.random().toString(36).substr(2, 9),
-        userId: userId,
-        amount: chapter.price,
-        type: 'purchase',
-        description: `Purchased ${chapter.title}`,
-        date: new Date().toISOString()
-    });
-    localStorage.setItem('nv_transactions', JSON.stringify(transactions));
+    // Only record transaction if price > 0
+    if (price > 0) {
+        const transactions: Transaction[] = JSON.parse(localStorage.getItem('nv_transactions') || '[]');
+        transactions.unshift({
+            id: Math.random().toString(36).substr(2, 9),
+            userId: userId,
+            amount: price,
+            type: 'purchase',
+            description: `Purchased ${chapter.title}`,
+            date: new Date().toISOString()
+        });
+        localStorage.setItem('nv_transactions', JSON.stringify(transactions));
+    }
 
     return true;
   },
@@ -626,17 +669,14 @@ export const MockBackendService = {
     const user = users[idx];
     if (!user.readingHistory) user.readingHistory = [];
 
-    // Remove existing entry for this novel if any
     user.readingHistory = user.readingHistory.filter(h => h.novelId !== novelId);
     
-    // Add new entry to the top
     user.readingHistory.unshift({
       novelId,
       chapterId,
       lastReadAt: new Date().toISOString()
     });
 
-    // Optional: Limit history size
     if (user.readingHistory.length > 20) {
       user.readingHistory = user.readingHistory.slice(0, 20);
     }

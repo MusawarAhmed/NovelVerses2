@@ -1,10 +1,10 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MockBackendService } from '../services/mockBackend';
 import { Novel, SiteSettings } from '../types';
 import { TrendingUp, Star, Clock, Zap, Trophy, Crown, Flame, BookOpen, ChevronRight, PenTool, Gift } from 'lucide-react';
 import { FadeIn, BlurIn, StaggerContainer, StaggerItem, ScaleButton, BlobBackground } from '../components/Anim';
+import { SEO } from '../components/SEO';
 
 export const Home: React.FC = () => {
   const [weeklyFeatured, setWeeklyFeatured] = useState<Novel[]>([]);
@@ -58,6 +58,8 @@ export const Home: React.FC = () => {
 
   return (
     <div className="pb-20">
+      <SEO title="Home" description="Read the best web novels, fanfics, and original stories online." />
+      
       {/* Hero / Weekly Book */}
       {settings.showHero && mainFeature && (
         <div className="relative bg-slate-900 text-white overflow-hidden">
