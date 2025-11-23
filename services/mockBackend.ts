@@ -1,4 +1,3 @@
-
 import { User, Novel, Chapter, Transaction, SiteSettings, Comment, ReadingHistoryItem } from '../types';
 
 // --- Expanded Mock Data for "Webnovel" Feel ---
@@ -256,7 +255,11 @@ const generateChaptersForNovels = (novels: Novel[]): Chapter[] => {
     let allChapters: Chapter[] = [];
     
     novels.forEach(novel => {
-        const chapterCount = Math.floor(Math.random() * 15) + 15; // 15-30 chapters per novel
+        // FIX: Deterministic chapter count based on Novel ID
+        // This ensures the chapter count doesn't change on reload/re-init
+        const idSum = novel.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const chapterCount = 25 + (idSum % 15); // Between 25 and 40 chapters
+
         for (let i = 1; i <= chapterCount; i++) {
             const volume = i <= 10 ? "Volume 1: The Beginning" : "Volume 2: Rising Storm";
             const isPaid = i > 5; 
@@ -282,6 +285,7 @@ const MOCK_USERS: User[] = [
     id: 'admin1',
     username: 'AdminUser',
     email: 'admin@novelverse.com',
+    password: 'admin', 
     role: 'admin',
     coins: 9999,
     bookmarks: [],
@@ -292,6 +296,7 @@ const MOCK_USERS: User[] = [
     id: 'user1',
     username: 'ReaderOne',
     email: 'reader@novelverse.com',
+    password: 'user', 
     role: 'user',
     coins: 50, 
     bookmarks: ['1', '8'],
@@ -308,6 +313,7 @@ const DEFAULT_SITE_SETTINGS: SiteSettings = {
     showTags: true,
     showPromo: true,
     enablePayments: true,
+    showDemoCredentials: true,
 };
 
 // Generate random comments
@@ -346,11 +352,14 @@ export const MockBackendService = {
     if (!localStorage.getItem('nv_novels')) {
       localStorage.setItem('nv_novels', JSON.stringify(MOCK_NOVELS));
     }
-    // Regenerate chapters if they seem short or empty (forcing update for this task)
-    const currentNovels = JSON.parse(localStorage.getItem('nv_novels') || '[]');
-    // Always regenerate for this demo to ensure long content exists
-    const newChapters = generateChaptersForNovels(currentNovels);
-    localStorage.setItem('nv_chapters', JSON.stringify(newChapters));
+    
+    // FIX: Only generate chapters if they don't exist.
+    // Previously this ran every time, overwriting data with random IDs/counts.
+    if (!localStorage.getItem('nv_chapters')) {
+        const currentNovels = JSON.parse(localStorage.getItem('nv_novels') || '[]');
+        const newChapters = generateChaptersForNovels(currentNovels);
+        localStorage.setItem('nv_chapters', JSON.stringify(newChapters));
+    }
 
     if (!localStorage.getItem('nv_users')) {
       localStorage.setItem('nv_users', JSON.stringify(MOCK_USERS));
@@ -493,19 +502,36 @@ export const MockBackendService = {
     localStorage.setItem('nv_chapters', JSON.stringify(chapters));
   },
 
-  login: (email: string): User | undefined => {
+  // Update login to check password
+  login: (email: string, password?: string): User | undefined => {
     const users: User[] = JSON.parse(localStorage.getItem('nv_users') || '[]');
-    return users.find(u => u.email === email);
+    const user = users.find(u => u.email === email);
+    
+    if (user) {
+      // If user has no password (legacy), allow logic, otherwise check password
+      if (user.password && password) {
+        return user.password === password ? user : undefined;
+      }
+      // Fallback for legacy users with no password (optional: force update)
+      return user;
+    }
+    return undefined;
   },
 
-  signup: (username: string, email: string): User => {
+  // Update signup to accept password
+  signup: (username: string, email: string, password?: string): User => {
     const users: User[] = JSON.parse(localStorage.getItem('nv_users') || '[]');
     if (users.find(u => u.email === email)) throw new Error("User already exists");
     
+    if (password && password.length < 6) {
+        throw new Error("Password must be at least 6 characters long");
+    }
+
     const newUser: User = {
       id: Math.random().toString(36).substr(2, 9),
       username,
       email,
+      password, // Store password
       role: 'user',
       coins: 50,
       bookmarks: [],

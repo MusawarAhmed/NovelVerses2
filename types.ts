@@ -1,4 +1,3 @@
-
 export interface ReadingHistoryItem {
   novelId: string;
   chapterId: string;
@@ -9,12 +8,13 @@ export interface User {
   id: string;
   username: string;
   email: string;
+  password?: string; // Added password field
   role: 'user' | 'admin';
   coins: number;
   avatar?: string;
   bookmarks: string[]; // Novel IDs
   purchasedChapters: string[]; // Chapter IDs
-  readingHistory: ReadingHistoryItem[]; // New field
+  readingHistory: ReadingHistoryItem[]; 
 }
 
 export interface Novel {
@@ -72,4 +72,5 @@ export interface SiteSettings {
   showTags: boolean;
   showPromo: boolean;
   enablePayments: boolean;
+  showDemoCredentials: boolean;
 }

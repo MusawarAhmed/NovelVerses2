@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -16,7 +15,7 @@ import { User } from './types';
 // Context for global state
 export const AppContext = React.createContext<{
   user: User | null;
-  login: (u: User) => void;
+  login: (u: User, remember?: boolean) => void;
   logout: () => void;
   refreshUser: () => void;
   theme: 'light' | 'dark' | 'sepia';
@@ -46,10 +45,45 @@ export default function App() {
   useEffect(() => {
     // Initialize DB and check session
     MockBackendService.init();
-    const storedUser = localStorage.getItem('nv_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    
+    // Check LocalStorage (Persistent) first
+    let storedUserStr = localStorage.getItem('nv_user');
+    let isPersistent = true;
+    
+    // If not in Local, check SessionStorage (Temporary/Tab only)
+    if (!storedUserStr) {
+      storedUserStr = sessionStorage.getItem('nv_user');
+      isPersistent = false;
     }
+
+    if (storedUserStr) {
+      try {
+        const sessionUser = JSON.parse(storedUserStr);
+        // CRITICAL FIX: Fetch the LATEST user data from the 'database' using the ID.
+        // The stored session string might be stale (missing recent purchases/history).
+        const freshUser = MockBackendService.getUser(sessionUser.id);
+        
+        if (freshUser) {
+          setUser(freshUser);
+          // Update the session storage with the fresh data to keep them in sync
+          if (isPersistent) {
+            localStorage.setItem('nv_user', JSON.stringify(freshUser));
+          } else {
+            sessionStorage.setItem('nv_user', JSON.stringify(freshUser));
+          }
+        } else {
+          // User ID found in session but not in DB (deleted user?) -> Logout
+          setUser(null);
+          localStorage.removeItem('nv_user');
+          sessionStorage.removeItem('nv_user');
+        }
+      } catch (e) {
+        console.error("Failed to parse session user", e);
+        localStorage.removeItem('nv_user');
+        sessionStorage.removeItem('nv_user');
+      }
+    }
+
     const storedTheme = localStorage.getItem('nv_theme') as 'light' | 'dark' | 'sepia';
     if (storedTheme) setTheme(storedTheme);
     setLoading(false);
@@ -65,14 +99,21 @@ export default function App() {
     localStorage.setItem('nv_theme', theme);
   }, [theme]);
 
-  const login = (u: User) => {
+  const login = (u: User, remember: boolean = false) => {
     setUser(u);
-    localStorage.setItem('nv_user', JSON.stringify(u));
+    if (remember) {
+      localStorage.setItem('nv_user', JSON.stringify(u));
+      sessionStorage.removeItem('nv_user'); // Clear session to avoid duplicates
+    } else {
+      sessionStorage.setItem('nv_user', JSON.stringify(u));
+      localStorage.removeItem('nv_user'); // Clear local to ensure privacy
+    }
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('nv_user');
+    sessionStorage.removeItem('nv_user');
   };
 
   const refreshUser = () => {
@@ -80,7 +121,12 @@ export default function App() {
     const updated = MockBackendService.getUser(user.id);
     if (updated) {
       setUser(updated);
-      localStorage.setItem('nv_user', JSON.stringify(updated));
+      // Update the specific storage being used based on where it currently exists
+      if (localStorage.getItem('nv_user')) {
+        localStorage.setItem('nv_user', JSON.stringify(updated));
+      } else {
+        sessionStorage.setItem('nv_user', JSON.stringify(updated));
+      }
     }
   };
 

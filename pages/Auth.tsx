@@ -1,20 +1,26 @@
-
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MockBackendService } from '../services/mockBackend';
 import { AppContext } from '../App';
 import { Info, Copy, Check } from 'lucide-react';
 import { SpringCard, FadeIn, ScaleButton, BlurIn } from '../components/Anim';
+import { SiteSettings } from '../types';
 
 export const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const { login } = useContext(AppContext);
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState('');
+  const [settings, setSettings] = useState<SiteSettings | null>(null);
+
+  useEffect(() => {
+      setSettings(MockBackendService.getSiteSettings());
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,16 +30,20 @@ export const Auth: React.FC = () => {
 
     try {
         if (isLogin) {
-            const user = MockBackendService.login(email);
+            const user = MockBackendService.login(email, password);
             if (user) {
-                login(user);
+                login(user, rememberMe);
                 navigate(from, { replace: true });
             } else {
-                setError("Invalid email or user not found. Use the demo credentials below.");
+                setError("Invalid credentials. Please try again.");
             }
         } else {
-            const newUser = MockBackendService.signup(username, email);
-            login(newUser);
+            if (password.length < 6) {
+                setError("Password must be at least 6 characters long.");
+                return;
+            }
+            const newUser = MockBackendService.signup(username, email, password);
+            login(newUser, true);
             navigate(from, { replace: true });
         }
     } catch (err: any) {
@@ -54,32 +64,34 @@ export const Auth: React.FC = () => {
         </div>
 
         {/* Demo Credentials */}
-        <FadeIn delay={0.3} className="mb-8 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg p-4">
-            <div className="flex items-start mb-2">
-                <Info size={18} className="text-indigo-600 dark:text-indigo-400 mr-2 mt-0.5" />
-                <h3 className="font-bold text-sm text-indigo-900 dark:text-indigo-200">Demo Credentials</h3>
-            </div>
-            <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded border border-indigo-100 dark:border-slate-700">
-                   <div>
-                       <span className="text-xs uppercase text-slate-500 font-bold tracking-wider">Admin</span>
-                       <div className="font-mono text-slate-800 dark:text-slate-300">admin@novelverse.com</div>
-                   </div>
-                   <button onClick={() => { setEmail('admin@novelverse.com'); setPassword('admin'); }} className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded hover:bg-indigo-200 transition-colors">
-                       Auto Fill
-                   </button>
+        {settings?.showDemoCredentials && (
+            <FadeIn delay={0.3} className="mb-8 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg p-4">
+                <div className="flex items-start mb-2">
+                    <Info size={18} className="text-indigo-600 dark:text-indigo-400 mr-2 mt-0.5" />
+                    <h3 className="font-bold text-sm text-indigo-900 dark:text-indigo-200">Demo Credentials</h3>
                 </div>
-                <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded border border-indigo-100 dark:border-slate-700">
-                   <div>
-                       <span className="text-xs uppercase text-slate-500 font-bold tracking-wider">User</span>
-                       <div className="font-mono text-slate-800 dark:text-slate-300">reader@novelverse.com</div>
-                   </div>
-                   <button onClick={() => { setEmail('reader@novelverse.com'); setPassword('user'); }} className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded hover:bg-indigo-200 transition-colors">
-                       Auto Fill
-                   </button>
+                <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded border border-indigo-100 dark:border-slate-700">
+                    <div>
+                        <span className="text-xs uppercase text-slate-500 font-bold tracking-wider">Admin</span>
+                        <div className="font-mono text-slate-800 dark:text-slate-300">admin@novelverse.com</div>
+                    </div>
+                    <button onClick={() => { setEmail('admin@novelverse.com'); setPassword('admin'); }} className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded hover:bg-indigo-200 transition-colors">
+                        Auto Fill
+                    </button>
+                    </div>
+                    <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded border border-indigo-100 dark:border-slate-700">
+                    <div>
+                        <span className="text-xs uppercase text-slate-500 font-bold tracking-wider">User</span>
+                        <div className="font-mono text-slate-800 dark:text-slate-300">reader@novelverse.com</div>
+                    </div>
+                    <button onClick={() => { setEmail('reader@novelverse.com'); setPassword('user'); }} className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded hover:bg-indigo-200 transition-colors">
+                        Auto Fill
+                    </button>
+                    </div>
                 </div>
-            </div>
-        </FadeIn>
+            </FadeIn>
+        )}
 
         {error && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-sm animate-bounce">{error}</div>}
 
@@ -110,6 +122,22 @@ export const Auth: React.FC = () => {
                     value={password} onChange={e => setPassword(e.target.value)}
                 />
             </FadeIn>
+            
+            {isLogin && (
+                <FadeIn delay={0.55} className="flex items-center">
+                    <input
+                        id="remember-me"
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="h-4 w-4 text-primary focus:ring-primary border-slate-300 rounded cursor-pointer"
+                    />
+                    <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+                        Remember me
+                    </label>
+                </FadeIn>
+            )}
+
             <FadeIn delay={isLogin ? 0.6 : 0.7}>
                 <ScaleButton type="submit" className="w-full bg-primary hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-indigo-500/20">
                     {isLogin ? 'Sign In' : 'Sign Up'}
