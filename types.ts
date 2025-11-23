@@ -1,4 +1,10 @@
 
+export interface ReadingHistoryItem {
+  novelId: string;
+  chapterId: string;
+  lastReadAt: string;
+}
+
 export interface User {
   id: string;
   username: string;
@@ -8,6 +14,7 @@ export interface User {
   avatar?: string;
   bookmarks: string[]; // Novel IDs
   purchasedChapters: string[]; // Chapter IDs
+  readingHistory: ReadingHistoryItem[]; // New field
 }
 
 export interface Novel {
@@ -44,4 +51,25 @@ export interface Transaction {
   type: 'deposit' | 'purchase';
   description: string;
   date: string;
+}
+
+export interface Comment {
+  id: string;
+  chapterId: string;
+  userId: string;
+  username: string;
+  content: string;
+  likes: number;
+  createdAt: string;
+  avatarColor?: string; 
+}
+
+export interface SiteSettings {
+  showHero: boolean;
+  showWeeklyFeatured: boolean;
+  showRankings: boolean;
+  showRising: boolean;
+  showTags: boolean;
+  showPromo: boolean;
+  enablePayments: boolean;
 }

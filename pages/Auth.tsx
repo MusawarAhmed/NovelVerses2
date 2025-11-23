@@ -1,5 +1,6 @@
+
 import React, { useState, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { MockBackendService } from '../services/mockBackend';
 import { AppContext } from '../App';
 import { Info, Copy, Check } from 'lucide-react';
@@ -12,25 +13,28 @@ export const Auth: React.FC = () => {
   const [password, setPassword] = useState('');
   const { login } = useContext(AppContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
+    const from = location.state?.from || '/';
+
     try {
         if (isLogin) {
             const user = MockBackendService.login(email);
             if (user) {
                 login(user);
-                navigate('/');
+                navigate(from, { replace: true });
             } else {
                 setError("Invalid email or user not found. Use the demo credentials below.");
             }
         } else {
             const newUser = MockBackendService.signup(username, email);
             login(newUser);
-            navigate('/');
+            navigate(from, { replace: true });
         }
     } catch (err: any) {
         setError(err.message);

@@ -1,22 +1,24 @@
 
-import React, { useEffect, useState, useContext } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useContext, useRef } from 'react';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { MockBackendService } from '../services/mockBackend';
-import { Novel, Chapter } from '../types';
+import { Novel, Chapter, SiteSettings } from '../types';
 import { AppContext } from '../App';
-import { BookOpen, Bookmark, List, Lock, Unlock, Eye, TrendingUp, Star, Edit, MessageSquare, Share2, Info, Layers } from 'lucide-react';
-import { FadeIn, BlurIn, StaggerContainer, StaggerItem, ScaleButton, SpringCard } from '../components/Anim';
-import { motion } from 'framer-motion';
+import { BookOpen, Bookmark, List, Lock, Unlock, Eye, TrendingUp, Star, Edit, Layers } from 'lucide-react';
+import { FadeIn, ScaleButton } from '../components/Anim';
 
 export const NovelDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user, refreshUser } = useContext(AppContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const [novel, setNovel] = useState<Novel | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [relatedNovels, setRelatedNovels] = useState<Novel[]>([]);
   const [activeTab, setActiveTab] = useState<'about' | 'chapters'>('about');
+  const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -24,6 +26,7 @@ export const NovelDetail: React.FC = () => {
     if (n) {
       setNovel(n);
       setChapters(MockBackendService.getChapters(n.id));
+      setSettings(MockBackendService.getSiteSettings());
       
       // Logic for related novels
       const allNovels = MockBackendService.getNovels();
@@ -37,6 +40,7 @@ export const NovelDetail: React.FC = () => {
         navigate('/');
     }
     window.scrollTo(0, 0);
+    setActiveTab('about'); // Ensure default is about on load
   }, [id, navigate]);
 
   useEffect(() => {
@@ -46,11 +50,19 @@ export const NovelDetail: React.FC = () => {
   }, [user, novel]);
 
   const handleBookmark = () => {
-    if (!user) return navigate('/auth');
+    if (!user) return navigate('/auth', { state: { from: location.pathname } });
     if (novel) {
       MockBackendService.toggleBookmark(user.id, novel.id);
       refreshUser();
     }
+  };
+
+  const scrollToChapters = () => {
+      setActiveTab('chapters');
+      // Small timeout to allow state update and render
+      setTimeout(() => {
+          tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
   };
 
   // Helper for time ago
@@ -77,7 +89,7 @@ export const NovelDetail: React.FC = () => {
       return acc;
   }, {} as Record<string, Chapter[]>);
 
-  // Sort volumes keys (optional, assuming string sort is enough or specific logic needed)
+  // Sort volumes keys
   const sortedVolumes = Object.keys(groupedChapters).sort();
 
   if (!novel) return <div>Loading...</div>;
@@ -107,7 +119,13 @@ export const NovelDetail: React.FC = () => {
                       <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-2 font-serif leading-tight">{novel.title}</h1>
                       <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm text-slate-600 dark:text-slate-400">
                           <span className="flex items-center"><BookOpen size={16} className="mr-1"/> {novel.category}</span>
-                          <span className="flex items-center"><List size={16} className="mr-1"/> {chapters.length} Chs</span>
+                          <button 
+                            onClick={scrollToChapters}
+                            className="flex items-center hover:text-primary transition-colors cursor-pointer focus:outline-none group"
+                          >
+                              <List size={16} className="mr-1 group-hover:scale-110 transition-transform"/> 
+                              <span className="group-hover:underline underline-offset-4">{chapters.length} Chs</span>
+                          </button>
                           <span className="flex items-center"><Eye size={16} className="mr-1"/> {novel.views.toLocaleString()}</span>
                       </div>
                   </div>
@@ -145,7 +163,8 @@ export const NovelDetail: React.FC = () => {
           </div>
 
           {/* Content Tabs */}
-          <div className="mt-12">
+          {/* Added scroll-mt-24 to handle sticky header offset when scrolling into view */}
+          <div className="mt-12 scroll-mt-24" ref={tabsRef}>
               <div className="border-b border-slate-200 dark:border-slate-800 mb-8">
                   <div className="flex space-x-8">
                       <button 
@@ -211,7 +230,21 @@ export const NovelDetail: React.FC = () => {
                                           </h3>
                                           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
                                               {groupedChapters[vol].map((chapter) => {
-                                                  const isOwned = !chapter.isPaid || user?.purchasedChapters.includes(chapter.id) || user?.role === 'admin';
+                                                  const isPremium = chapter.isPaid;
+                                                  const isLoggedIn = !!user;
+                                                  const paymentsEnabled = settings?.enablePayments;
+
+                                                  let isOwned = !isPremium; // Free is always owned
+                                                  if (isPremium) {
+                                                      if (!paymentsEnabled) {
+                                                          // Payments off: Owned if logged in
+                                                          isOwned = isLoggedIn;
+                                                      } else {
+                                                          // Payments on: Owned if logged in + purchased
+                                                          isOwned = isLoggedIn && (user?.purchasedChapters.includes(chapter.id) || user?.role === 'admin');
+                                                      }
+                                                  }
+
                                                   return (
                                                       <Link 
                                                           key={chapter.id}
@@ -224,7 +257,7 @@ export const NovelDetail: React.FC = () => {
                                                               </p>
                                                           </div>
                                                           <div className="flex-shrink-0">
-                                                              {chapter.isPaid ? (
+                                                              {isPremium ? (
                                                                   isOwned ? (
                                                                       <Unlock size={14} className="text-green-500" />
                                                                   ) : (

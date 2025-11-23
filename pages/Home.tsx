@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MockBackendService } from '../services/mockBackend';
-import { Novel } from '../types';
+import { Novel, SiteSettings } from '../types';
 import { TrendingUp, Star, Clock, Zap, Trophy, Crown, Flame, BookOpen, ChevronRight, PenTool, Gift } from 'lucide-react';
 import { FadeIn, BlurIn, StaggerContainer, StaggerItem, ScaleButton, BlobBackground } from '../components/Anim';
 
@@ -13,6 +13,7 @@ export const Home: React.FC = () => {
   const [activeRanking, setActiveRanking] = useState<Novel[]>([]);
   const [risingStars, setRisingStars] = useState<Novel[]>([]);
   const [mainFeature, setMainFeature] = useState<Novel | null>(null);
+  const [settings, setSettings] = useState<SiteSettings | null>(null);
 
   useEffect(() => {
     const weekly = MockBackendService.getWeeklyFeatured(5);
@@ -22,6 +23,7 @@ export const Home: React.FC = () => {
     setCollectionRanking(MockBackendService.getRankedNovels('Collection', 5));
     setActiveRanking(MockBackendService.getRankedNovels('Active', 5));
     setRisingStars(MockBackendService.getRisingStars(4));
+    setSettings(MockBackendService.getSiteSettings());
   }, []);
 
   const RankingList = ({ title, novels, icon: Icon, colorClass }: { title: string, novels: Novel[], icon: any, colorClass: string }) => (
@@ -52,10 +54,12 @@ export const Home: React.FC = () => {
       </div>
   );
 
+  if (!settings) return null;
+
   return (
     <div className="pb-20">
       {/* Hero / Weekly Book */}
-      {mainFeature && (
+      {settings.showHero && mainFeature && (
         <div className="relative bg-slate-900 text-white overflow-hidden">
             <div className="absolute inset-0 bg-slate-900/80 z-10"></div>
             <div className="absolute inset-0 z-0">
@@ -103,116 +107,126 @@ export const Home: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 space-y-16">
         
         {/* Weekly Featured Grid */}
-        <section>
-            <div className="flex justify-between items-end mb-6">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Weekly Featured</h2>
-                <Link to="/browse/featured" className="text-sm text-slate-500 hover:text-primary flex items-center">View More <ChevronRight size={16}/></Link>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-                {weeklyFeatured.map(novel => (
-                    <Link key={novel.id} to={`/novel/${novel.id}`} className="group">
-                        <div className="relative aspect-[2/3] rounded-lg overflow-hidden mb-3 shadow-sm group-hover:shadow-md transition-all">
-                            <img src={novel.coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={novel.title}/>
-                            <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">
-                                {novel.category}
+        {settings.showWeeklyFeatured && (
+            <section>
+                <div className="flex justify-between items-end mb-6">
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Weekly Featured</h2>
+                    <Link to="/browse/featured" className="text-sm text-slate-500 hover:text-primary flex items-center">View More <ChevronRight size={16}/></Link>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
+                    {weeklyFeatured.map(novel => (
+                        <Link key={novel.id} to={`/novel/${novel.id}`} className="group">
+                            <div className="relative aspect-[2/3] rounded-lg overflow-hidden mb-3 shadow-sm group-hover:shadow-md transition-all">
+                                <img src={novel.coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={novel.title}/>
+                                <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                                    {novel.category}
+                                </div>
                             </div>
-                        </div>
-                        <h3 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-2 group-hover:text-primary transition-colors mb-1">{novel.title}</h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{novel.tags[0]}</p>
-                    </Link>
-                ))}
-            </div>
-        </section>
+                            <h3 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-2 group-hover:text-primary transition-colors mb-1">{novel.title}</h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{novel.tags[0]}</p>
+                        </Link>
+                    ))}
+                </div>
+            </section>
+        )}
 
         {/* Rankings Section */}
-        <section>
-             <div className="flex justify-between items-end mb-6">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Rankings</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <RankingList 
-                    title="Power Ranking" 
-                    novels={powerRanking} 
-                    icon={Zap} 
-                    colorClass="text-blue-600 dark:text-blue-400" 
-                />
-                <RankingList 
-                    title="Collection Ranking" 
-                    novels={collectionRanking} 
-                    icon={Trophy} 
-                    colorClass="text-yellow-600 dark:text-yellow-400" 
-                />
-                <RankingList 
-                    title="Active Ranking" 
-                    novels={activeRanking} 
-                    icon={Crown} 
-                    colorClass="text-red-600 dark:text-red-400" 
-                />
-            </div>
-        </section>
+        {settings.showRankings && (
+            <section>
+                <div className="flex justify-between items-end mb-6">
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Rankings</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <RankingList 
+                        title="Power Ranking" 
+                        novels={powerRanking} 
+                        icon={Zap} 
+                        colorClass="text-blue-600 dark:text-blue-400" 
+                    />
+                    <RankingList 
+                        title="Collection Ranking" 
+                        novels={collectionRanking} 
+                        icon={Trophy} 
+                        colorClass="text-yellow-600 dark:text-yellow-400" 
+                    />
+                    <RankingList 
+                        title="Active Ranking" 
+                        novels={activeRanking} 
+                        icon={Crown} 
+                        colorClass="text-red-600 dark:text-red-400" 
+                    />
+                </div>
+            </section>
+        )}
 
         {/* Rising Fictions / Potential Starlet */}
-        <section>
-            <div className="flex justify-between items-end mb-6">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center">
-                    <Flame className="text-orange-500 mr-2" /> Rising Fictions
-                </h2>
-                <Link to="/browse/rising" className="text-sm text-slate-500 hover:text-primary flex items-center">View More <ChevronRight size={16}/></Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {risingStars.map(novel => (
-                    <Link key={novel.id} to={`/novel/${novel.id}`} className="flex bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:shadow-md transition-shadow group">
-                        <div className="w-20 h-28 flex-shrink-0 rounded overflow-hidden mr-4">
-                             <img src={novel.coverUrl} className="w-full h-full object-cover" alt={novel.title}/>
-                        </div>
-                        <div className="flex flex-col justify-between py-1">
-                            <div>
-                                <h4 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-2 group-hover:text-primary transition-colors mb-1">{novel.title}</h4>
-                                <p className="text-xs text-slate-500 line-clamp-1">{novel.category}</p>
+        {settings.showRising && (
+            <section>
+                <div className="flex justify-between items-end mb-6">
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center">
+                        <Flame className="text-orange-500 mr-2" /> Rising Fictions
+                    </h2>
+                    <Link to="/browse/rising" className="text-sm text-slate-500 hover:text-primary flex items-center">View More <ChevronRight size={16}/></Link>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {risingStars.map(novel => (
+                        <Link key={novel.id} to={`/novel/${novel.id}`} className="flex bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:shadow-md transition-shadow group">
+                            <div className="w-20 h-28 flex-shrink-0 rounded overflow-hidden mr-4">
+                                <img src={novel.coverUrl} className="w-full h-full object-cover" alt={novel.title}/>
                             </div>
-                            <div className="text-xs font-medium text-orange-500 bg-orange-50 dark:bg-orange-900/20 px-2 py-1 rounded self-start">
-                                Rising Star
+                            <div className="flex flex-col justify-between py-1">
+                                <div>
+                                    <h4 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-2 group-hover:text-primary transition-colors mb-1">{novel.title}</h4>
+                                    <p className="text-xs text-slate-500 line-clamp-1">{novel.category}</p>
+                                </div>
+                                <div className="text-xs font-medium text-orange-500 bg-orange-50 dark:bg-orange-900/20 px-2 py-1 rounded self-start">
+                                    Rising Star
+                                </div>
                             </div>
-                        </div>
-                    </Link>
-                ))}
-            </div>
-        </section>
+                        </Link>
+                    ))}
+                </div>
+            </section>
+        )}
 
         {/* Tags / Discovery */}
-        <section>
-             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Popular Tags</h2>
-             <div className="flex flex-wrap gap-3">
-                 {["System", "Cultivation", "Reincarnation", "Romance", "Vampire", "Magic", "Cyberpunk", "Apocalypse", "Slice of Life", "Dungeon", "Overpowered", "Villain", "Comedy", "Horror"].map(tag => (
-                     <Link key={tag} to={`/search?q=${tag}`} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm text-slate-600 dark:text-slate-300 hover:border-primary hover:text-primary transition-colors">
-                         {tag}
-                     </Link>
-                 ))}
-             </div>
-        </section>
+        {settings.showTags && (
+            <section>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Popular Tags</h2>
+                <div className="flex flex-wrap gap-3">
+                    {["System", "Cultivation", "Reincarnation", "Romance", "Vampire", "Magic", "Cyberpunk", "Apocalypse", "Slice of Life", "Dungeon", "Overpowered", "Villain", "Comedy", "Horror"].map(tag => (
+                        <Link key={tag} to={`/search?q=${tag}`} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm text-slate-600 dark:text-slate-300 hover:border-primary hover:text-primary transition-colors">
+                            {tag}
+                        </Link>
+                    ))}
+                </div>
+            </section>
+        )}
 
         {/* Meet Webnovel / Promo */}
-        <section className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 border border-indigo-100 dark:border-slate-700">
-            <div className="max-w-lg">
-                <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-4">Meet NovelVerse</h2>
-                <p className="text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
-                    Join thousands of authors and readers. Create your own world, share your stories, and get supported by a vibrant community.
-                </p>
-                <div className="flex flex-wrap gap-4">
-                    <Link to="/auth" className="flex items-center px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg font-bold hover:opacity-90 transition-opacity">
-                        <PenTool size={18} className="mr-2" /> Start Writing
-                    </Link>
-                    <Link to="/search" className="flex items-center px-6 py-3 bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-lg font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                        <Gift size={18} className="mr-2" /> Benefits
-                    </Link>
+        {settings.showPromo && (
+            <section className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 border border-indigo-100 dark:border-slate-700">
+                <div className="max-w-lg">
+                    <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-4">Meet NovelVerse</h2>
+                    <p className="text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
+                        Join thousands of authors and readers. Create your own world, share your stories, and get supported by a vibrant community.
+                    </p>
+                    <div className="flex flex-wrap gap-4">
+                        <Link to="/auth" className="flex items-center px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg font-bold hover:opacity-90 transition-opacity">
+                            <PenTool size={18} className="mr-2" /> Start Writing
+                        </Link>
+                        <Link to="/search" className="flex items-center px-6 py-3 bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-lg font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                            <Gift size={18} className="mr-2" /> Benefits
+                        </Link>
+                    </div>
                 </div>
-            </div>
-             <div className="flex-shrink-0 w-full md:w-auto flex gap-4 opacity-80">
-                 <div className="w-24 h-32 bg-white dark:bg-slate-800 rounded-lg shadow-lg transform -rotate-6"></div>
-                 <div className="w-24 h-32 bg-primary rounded-lg shadow-lg transform rotate-0 -mt-8"></div>
-                 <div className="w-24 h-32 bg-secondary rounded-lg shadow-lg transform rotate-6"></div>
-             </div>
-        </section>
+                <div className="flex-shrink-0 w-full md:w-auto flex gap-4 opacity-80">
+                    <div className="w-24 h-32 bg-white dark:bg-slate-800 rounded-lg shadow-lg transform -rotate-6"></div>
+                    <div className="w-24 h-32 bg-primary rounded-lg shadow-lg transform rotate-0 -mt-8"></div>
+                    <div className="w-24 h-32 bg-secondary rounded-lg shadow-lg transform rotate-6"></div>
+                </div>
+            </section>
+        )}
 
       </div>
     </div>

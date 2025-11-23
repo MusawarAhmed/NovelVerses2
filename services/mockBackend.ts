@@ -1,5 +1,5 @@
 
-import { User, Novel, Chapter, Transaction } from '../types';
+import { User, Novel, Chapter, Transaction, SiteSettings, Comment, ReadingHistoryItem } from '../types';
 
 // --- Expanded Mock Data for "Webnovel" Feel ---
 const MOCK_NOVELS: Novel[] = [
@@ -222,27 +222,55 @@ const MOCK_NOVELS: Novel[] = [
   }
 ];
 
-// Helper to generate chapters
+// Helper to generate longer chapter content
+const generateLongContent = (title: string, volume: string, chapterNum: number) => {
+    const paragraphs = [
+        "The sky above was the color of television, tuned to a dead channel. It wasn't supposed to be like this, not today, not when the fate of the realm hung in the balance. He gripped the hilt of his sword, feeling the cold steel bite into his palm.",
+        "\"We have to move,\" she whispered, her voice barely audible over the howling wind. \"They're coming.\"",
+        "He nodded, glancing back at the ruins of what was once their home. \"I know. But where can we go? The borders are sealed, and the Shadow Guards are everywhere.\"",
+        "Suddenly, a blinding light erupted from the horizon. The ground shook violently, throwing them off balance. It was starting. The prophecy had spoken of this day, the day the stars would fall and the seas would boil.",
+        "He remembered the old master's words: 'Power comes not from strength, but from the will to endure.' He took a deep breath, channeling his inner energy. The air around him shimmered with a faint azure glow.",
+        "\"Watch out!\" she screamed, pushing him aside just as a massive boulder crashed where he had been standing. Dust and debris filled the air, choking them.",
+        "They scrambled to their feet, running towards the dense forest. The trees here were ancient, their roots twisted like gnarled fingers. Shadows danced in the periphery of their vision, whispering secrets of a forgotten age.",
+        "As they ran, he thought about his training. The endless hours of meditation, the grueling physical exercises, the pain of unlocking his meridians. It all led to this moment. He couldn't fail. He wouldn't fail.",
+        "They reached a clearing, panting heavily. In the center stood a stone pedestal, ancient runes glowing softly on its surface. \"Is this it?\" he asked, approaching it cautiously.",
+        "\"It has to be,\" she replied, her eyes wide with awe. \"The Sanctuary of the Lost.\""
+    ];
+
+    let content = `<h3>${title}</h3><p class="italic text-slate-500 mb-4">Volume: ${volume}</p>`;
+    
+    // Repeat paragraphs to create length (approx 2000 words)
+    for (let i = 0; i < 15; i++) {
+        content += `<p>${paragraphs[i % paragraphs.length]}</p>`;
+        content += `<p>Section ${i + 1}: The journey continued with renewed vigor. The challenges they faced were merely stepping stones on the path to greatness. He felt his cultivation base stirring, a sign that a breakthrough was imminent.</p>`;
+        if (i % 3 === 0) {
+            content += `<p>"Do you think we'll make it?" she asked, her voice trembling slightly.</p><p>"We have to," he replied firmly. "For everyone we lost."</p>`;
+        }
+    }
+    
+    content += `<p class="mt-8 font-bold text-center">To be continued...</p>`;
+    return content;
+};
+
 const generateChaptersForNovels = (novels: Novel[]): Chapter[] => {
     let allChapters: Chapter[] = [];
     
     novels.forEach(novel => {
-        const chapterCount = Math.floor(Math.random() * 15) + 10; // 10-25 chapters per novel
+        const chapterCount = Math.floor(Math.random() * 15) + 15; // 15-30 chapters per novel
         for (let i = 1; i <= chapterCount; i++) {
-            // Assign volumes: First 10 chapters Volume 1, rest Volume 2
             const volume = i <= 10 ? "Volume 1: The Beginning" : "Volume 2: Rising Storm";
-            const isPaid = i > 5; // First 5 free
+            const isPaid = i > 5; 
             
             allChapters.push({
                 id: `${novel.id}_c${i}`,
                 novelId: novel.id,
                 title: `Chapter ${i}: The Story Continues`,
-                content: `<h3>Chapter ${i}</h3><p>This is the content for chapter ${i} of <strong>${novel.title}</strong>.</p><p>It resides in ${volume}.</p><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p><p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>`,
+                content: generateLongContent(`Chapter ${i}`, volume, i),
                 volume: volume,
                 order: i,
                 isPaid: isPaid,
                 price: isPaid ? 15 : 0,
-                createdAt: new Date(new Date().getTime() - (chapterCount - i) * 86400000).toISOString() // Staggered dates
+                createdAt: new Date(new Date().getTime() - (chapterCount - i) * 86400000).toISOString() 
             });
         }
     });
@@ -257,38 +285,84 @@ const MOCK_USERS: User[] = [
     role: 'admin',
     coins: 9999,
     bookmarks: [],
-    purchasedChapters: []
+    purchasedChapters: [],
+    readingHistory: []
   },
   {
     id: 'user1',
     username: 'ReaderOne',
     email: 'reader@novelverse.com',
     role: 'user',
-    coins: 50, // Enough for a few chapters
+    coins: 50, 
     bookmarks: ['1', '8'],
-    purchasedChapters: []
+    purchasedChapters: [],
+    readingHistory: []
   }
 ];
+
+const DEFAULT_SITE_SETTINGS: SiteSettings = {
+    showHero: true,
+    showWeeklyFeatured: true,
+    showRankings: true,
+    showRising: true,
+    showTags: true,
+    showPromo: true,
+    enablePayments: true,
+};
+
+// Generate random comments
+const generateComments = (): Comment[] => {
+    const comments: Comment[] = [];
+    const usernames = ["DragonSlayer", "BookWorm99", "DaoistPeace", "SystemUser", "Lurker", "KeyboardWarrior"];
+    const messages = [
+        "Great chapter! Can't wait for the next one.",
+        "The MC is too OP, please nerf.",
+        "Finally, some character development!",
+        "I noticed a typo in the third paragraph.",
+        "This cliffhanger is killing me!",
+        "Does anyone know when the next update is?",
+        "First!",
+        "Thanks for the chapter author-san."
+    ];
+    const colors = ["bg-red-500", "bg-blue-500", "bg-green-500", "bg-yellow-500", "bg-purple-500", "bg-pink-500"];
+
+    for (let i = 0; i < 50; i++) {
+        comments.push({
+            id: `cmt_${i}`,
+            chapterId: `mock_chapter_${Math.floor(Math.random() * 100)}`, // Placeholder linking
+            userId: `user_${Math.floor(Math.random() * 100)}`,
+            username: usernames[Math.floor(Math.random() * usernames.length)],
+            content: messages[Math.floor(Math.random() * messages.length)],
+            likes: Math.floor(Math.random() * 100),
+            createdAt: new Date(Date.now() - Math.random() * 1000000000).toISOString(),
+            avatarColor: colors[Math.floor(Math.random() * colors.length)]
+        });
+    }
+    return comments;
+};
 
 export const MockBackendService = {
   init: () => {
     if (!localStorage.getItem('nv_novels')) {
       localStorage.setItem('nv_novels', JSON.stringify(MOCK_NOVELS));
     }
-    // Ensure all novels have chapters if fresh or low count
+    // Regenerate chapters if they seem short or empty (forcing update for this task)
     const currentNovels = JSON.parse(localStorage.getItem('nv_novels') || '[]');
-    const currentChapters = JSON.parse(localStorage.getItem('nv_chapters') || '[]');
-    
-    if (currentChapters.length < 50) {
-        const newChapters = generateChaptersForNovels(currentNovels);
-        localStorage.setItem('nv_chapters', JSON.stringify(newChapters));
-    }
+    // Always regenerate for this demo to ensure long content exists
+    const newChapters = generateChaptersForNovels(currentNovels);
+    localStorage.setItem('nv_chapters', JSON.stringify(newChapters));
 
     if (!localStorage.getItem('nv_users')) {
       localStorage.setItem('nv_users', JSON.stringify(MOCK_USERS));
     }
     if (!localStorage.getItem('nv_transactions')) {
       localStorage.setItem('nv_transactions', JSON.stringify([]));
+    }
+    if (!localStorage.getItem('nv_site_settings')) {
+        localStorage.setItem('nv_site_settings', JSON.stringify(DEFAULT_SITE_SETTINGS));
+    }
+    if (!localStorage.getItem('nv_comments')) {
+        localStorage.setItem('nv_comments', JSON.stringify(generateComments()));
     }
   },
 
@@ -435,7 +509,8 @@ export const MockBackendService = {
       role: 'user',
       coins: 50,
       bookmarks: [],
-      purchasedChapters: []
+      purchasedChapters: [],
+      readingHistory: []
     };
     users.push(newUser);
     localStorage.setItem('nv_users', JSON.stringify(users));
@@ -467,6 +542,9 @@ export const MockBackendService = {
   },
 
   purchaseChapter: (userId: string, chapterId: string): boolean => {
+    const settings = MockBackendService.getSiteSettings();
+    if (!settings.enablePayments) return true;
+
     const users: User[] = JSON.parse(localStorage.getItem('nv_users') || '[]');
     const userIndex = users.findIndex(u => u.id === userId);
     if (userIndex === -1) return false;
@@ -513,6 +591,34 @@ export const MockBackendService = {
     return user.bookmarks;
   },
 
+  // --- Reading History ---
+  saveReadingHistory: (userId: string, novelId: string, chapterId: string) => {
+    const users: User[] = JSON.parse(localStorage.getItem('nv_users') || '[]');
+    const idx = users.findIndex(u => u.id === userId);
+    if (idx === -1) return;
+
+    const user = users[idx];
+    if (!user.readingHistory) user.readingHistory = [];
+
+    // Remove existing entry for this novel if any
+    user.readingHistory = user.readingHistory.filter(h => h.novelId !== novelId);
+    
+    // Add new entry to the top
+    user.readingHistory.unshift({
+      novelId,
+      chapterId,
+      lastReadAt: new Date().toISOString()
+    });
+
+    // Optional: Limit history size
+    if (user.readingHistory.length > 20) {
+      user.readingHistory = user.readingHistory.slice(0, 20);
+    }
+
+    users[idx] = user;
+    localStorage.setItem('nv_users', JSON.stringify(users));
+  },
+
   getTransactions: (): Transaction[] => {
       return JSON.parse(localStorage.getItem('nv_transactions') || '[]');
   },
@@ -533,5 +639,37 @@ export const MockBackendService = {
           totalUsers: users.length,
           totalRevenue
       };
+  },
+
+  // --- Comments ---
+  getComments: (chapterId: string): Comment[] => {
+      const allComments = JSON.parse(localStorage.getItem('nv_comments') || '[]');
+      return allComments.slice(0, 8); 
+  },
+
+  createComment: (chapterId: string, userId: string, username: string, content: string) => {
+      const comments = JSON.parse(localStorage.getItem('nv_comments') || '[]');
+      const newComment: Comment = {
+          id: `cmt_${Date.now()}`,
+          chapterId,
+          userId,
+          username,
+          content,
+          likes: 0,
+          createdAt: new Date().toISOString(),
+          avatarColor: 'bg-indigo-500'
+      };
+      comments.unshift(newComment);
+      localStorage.setItem('nv_comments', JSON.stringify(comments));
+      return newComment;
+  },
+
+  // --- Frontend Settings ---
+  getSiteSettings: (): SiteSettings => {
+      return JSON.parse(localStorage.getItem('nv_site_settings') || JSON.stringify(DEFAULT_SITE_SETTINGS));
+  },
+
+  updateSiteSettings: (settings: SiteSettings) => {
+      localStorage.setItem('nv_site_settings', JSON.stringify(settings));
   }
 };
