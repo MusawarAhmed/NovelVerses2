@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { MockBackendService } from '../services/mockBackend';
+import { NovelService } from '../services/novelService';
 import { Novel } from '../types';
 import { Search as SearchIcon, Star, Clock, BookOpen } from 'lucide-react';
 import { FadeIn, StaggerContainer, StaggerItem } from '../components/Anim';
@@ -12,45 +12,48 @@ export const Search: React.FC = () => {
   const [results, setResults] = useState<Novel[]>([]);
 
   useEffect(() => {
-    const novels = MockBackendService.getNovels();
-    if (!searchQuery) {
-      setResults([]);
-    } else {
-      const lowerQ = searchQuery.toLowerCase().trim();
-      
-      // Weighted Search Algorithm
-      const scoredResults = novels.map(novel => {
-        let score = 0;
-        
-        // 1. Exact Tag Match (Highest Priority for clicking tags)
-        if (novel.tags.some(t => t.toLowerCase() === lowerQ)) score += 100;
-        
-        // 2. Exact Title Match
-        else if (novel.title.toLowerCase() === lowerQ) score += 90;
-        
-        // 3. Title contains query
-        else if (novel.title.toLowerCase().includes(lowerQ)) score += 60;
-        
-        // 4. Author match
-        else if (novel.author.toLowerCase().includes(lowerQ)) score += 40;
-        
-        // 5. Partial Tag Match
-        else if (novel.tags.some(t => t.toLowerCase().includes(lowerQ))) score += 30;
-        
-        // 6. Description Match (Lowest Priority)
-        else if (novel.description.toLowerCase().includes(lowerQ)) score += 10;
-
-        return { novel, score };
-      });
-
-      // Filter out zero scores and sort by score descending
-      const sorted = scoredResults
-        .filter(item => item.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .map(item => item.novel);
-
-      setResults(sorted);
-    }
+    const fetchResults = async () => {
+        const novels = await NovelService.getNovels();
+        if (!searchQuery) {
+          setResults([]);
+        } else {
+          const lowerQ = searchQuery.toLowerCase().trim();
+          
+          // Weighted Search Algorithm
+          const scoredResults = novels.map(novel => {
+            let score = 0;
+            
+            // 1. Exact Tag Match (Highest Priority for clicking tags)
+            if (novel.tags.some(t => t.toLowerCase() === lowerQ)) score += 100;
+            
+            // 2. Exact Title Match
+            else if (novel.title.toLowerCase() === lowerQ) score += 90;
+            
+            // 3. Title contains query
+            else if (novel.title.toLowerCase().includes(lowerQ)) score += 60;
+            
+            // 4. Author match
+            else if (novel.author.toLowerCase().includes(lowerQ)) score += 40;
+            
+            // 5. Partial Tag Match
+            else if (novel.tags.some(t => t.toLowerCase().includes(lowerQ))) score += 30;
+            
+            // 6. Description Match (Lowest Priority)
+            else if (novel.description.toLowerCase().includes(lowerQ)) score += 10;
+    
+            return { novel, score };
+          });
+    
+          // Filter out zero scores and sort by score descending
+          const sorted = scoredResults
+            .filter(item => item.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .map(item => item.novel);
+    
+          setResults(sorted);
+        }
+    };
+    fetchResults();
   }, [searchQuery]);
 
   return (

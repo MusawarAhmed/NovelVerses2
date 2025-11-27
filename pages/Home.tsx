@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MockBackendService } from '../services/mockBackend';
+import { NovelService } from '../services/novelService';
 import { Novel, SiteSettings } from '../types';
 import { TrendingUp, Star, Clock, Zap, Trophy, Crown, Flame, BookOpen, ChevronRight, PenTool, Gift } from 'lucide-react';
 import { FadeIn, BlurIn, StaggerContainer, StaggerItem, ScaleButton, BlobBackground } from '../components/Anim';
@@ -16,14 +16,26 @@ export const Home: React.FC = () => {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
 
   useEffect(() => {
-    const weekly = MockBackendService.getWeeklyFeatured(5);
-    setWeeklyFeatured(weekly);
-    setMainFeature(weekly[0] || null);
-    setPowerRanking(MockBackendService.getRankedNovels('Power', 5));
-    setCollectionRanking(MockBackendService.getRankedNovels('Collection', 5));
-    setActiveRanking(MockBackendService.getRankedNovels('Active', 5));
-    setRisingStars(MockBackendService.getRisingStars(4));
-    setSettings(MockBackendService.getSiteSettings());
+    const fetchData = async () => {
+        const weekly = await NovelService.getWeeklyFeatured(5);
+        setWeeklyFeatured(weekly);
+        setMainFeature(weekly[0] || null);
+        
+        const power = await NovelService.getRankedNovels('Power', 5);
+        setPowerRanking(power);
+        
+        const collection = await NovelService.getRankedNovels('Collection', 5);
+        setCollectionRanking(collection);
+        
+        const active = await NovelService.getRankedNovels('Active', 5);
+        setActiveRanking(active);
+        
+        const rising = await NovelService.getRisingStars(4);
+        setRisingStars(rising);
+        
+        setSettings(await NovelService.getSiteSettings());
+    };
+    fetchData();
   }, []);
 
   const RankingList = ({ title, novels, icon: Icon, colorClass }: { title: string, novels: Novel[], icon: any, colorClass: string }) => (

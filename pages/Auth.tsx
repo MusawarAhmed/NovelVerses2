@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MockBackendService } from '../services/mockBackend';
+import { NovelService } from '../services/novelService';
 import { AppContext } from '../App';
 import { Info, Copy, Check } from 'lucide-react';
 import { SpringCard, FadeIn, ScaleButton, BlurIn } from '../components/Anim';
@@ -19,10 +19,14 @@ export const Auth: React.FC = () => {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
 
   useEffect(() => {
-      setSettings(MockBackendService.getSiteSettings());
+    const fetchSettings = async () => {
+      const s = await NovelService.getSiteSettings();
+      setSettings(s);
+    };
+    fetchSettings();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
@@ -30,24 +34,22 @@ export const Auth: React.FC = () => {
 
     try {
         if (isLogin) {
-            const user = MockBackendService.login(email, password);
+            const user = await NovelService.login(email, password);
             if (user) {
                 login(user, rememberMe);
                 navigate(from, { replace: true });
-            } else {
-                setError("Invalid credentials. Please try again.");
             }
         } else {
             if (password.length < 6) {
                 setError("Password must be at least 6 characters long.");
                 return;
             }
-            const newUser = MockBackendService.signup(username, email, password);
+            const newUser = await NovelService.signup(username, email, password);
             login(newUser, true);
             navigate(from, { replace: true });
         }
     } catch (err: any) {
-        setError(err.message);
+        setError(err.response?.data?.msg || err.message || "Authentication failed");
     }
   };
 

@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { AppContext } from '../App';
-import { MockBackendService } from '../services/mockBackend';
+import { NovelService } from '../services/novelService';
 import { Link } from 'react-router-dom';
 import { BookOpen, Coins, CreditCard, Clock, ChevronRight, Bookmark, Edit2, Save, X, RefreshCw, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { FadeIn, ScaleButton } from '../components/Anim';
@@ -35,16 +35,29 @@ export const UserProfile: React.FC = () => {
 
   if (!user) return null;
 
-  const bookmarks = user.bookmarks.map(id => MockBackendService.getNovelById(id)).filter(Boolean);
-  
-  const historyItems = (user.readingHistory || [])
-    .sort((a, b) => new Date(b.lastReadAt).getTime() - new Date(a.lastReadAt).getTime())
-    .map(item => {
-        const novel = MockBackendService.getNovelById(item.novelId);
-        const chapter = MockBackendService.getChapter(item.chapterId);
-        return { ...item, novel, chapter };
-    })
-    .filter(item => item.novel && item.chapter);
+  // Data State
+  const [bookmarks, setBookmarks] = useState<any[]>([]);
+  const [historyItems, setHistoryItems] = useState<any[]>([]);
+
+  useEffect(() => {
+      if (!user) return;
+      const fetchUserData = async () => {
+          // Fetch Bookmarks
+          const bookmarkPromises = user.bookmarks.map(id => NovelService.getNovelById(id));
+          const fetchedBookmarks = await Promise.all(bookmarkPromises);
+          setBookmarks(fetchedBookmarks.filter(Boolean));
+
+          // Fetch History
+          const historyPromises = (user.readingHistory || []).map(async (item) => {
+              const novel = await NovelService.getNovelById(item.novelId);
+              const chapter = await NovelService.getChapter(item.chapterId);
+              return { ...item, novel, chapter };
+          });
+          const fetchedHistory = await Promise.all(historyPromises);
+          setHistoryItems(fetchedHistory.filter(item => item.novel && item.chapter).sort((a: any, b: any) => new Date(b.lastReadAt).getTime() - new Date(a.lastReadAt).getTime()));
+      };
+      fetchUserData();
+  }, [user]);
 
   // --- Password Logic ---
 
@@ -88,7 +101,7 @@ export const UserProfile: React.FC = () => {
       setPasswordError(null);
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
       e.preventDefault();
       setSaveMessage(null);
 
@@ -111,14 +124,13 @@ export const UserProfile: React.FC = () => {
 
       // Construct Update Object
       const updatedUser = {
-          ...user,
           username: formData.username,
           email: formData.email,
           ...(formData.newPassword ? { password: formData.newPassword } : {})
       };
 
       try {
-          MockBackendService.updateUser(updatedUser);
+          await NovelService.updateProfile(updatedUser);
           refreshUser();
           setIsEditing(false);
           setSaveMessage("Profile updated successfully!");
@@ -128,18 +140,15 @@ export const UserProfile: React.FC = () => {
       }
   };
 
-  const handleAddCoins = () => {
+  const handleAddCoins = async () => {
       if(window.confirm("Purchase 100 coins for $0.99? (Mock Stripe)")) {
-          user.coins += 100;
-          localStorage.setItem('nv_user', JSON.stringify(user));
-          const users = JSON.parse(localStorage.getItem('nv_users') || '[]');
-          const idx = users.findIndex((u: any) => u.id === user.id);
-          if(idx >= 0) {
-              users[idx].coins = user.coins;
-              localStorage.setItem('nv_users', JSON.stringify(users));
+          try {
+              await NovelService.addCoins(100);
+              refreshUser();
+              alert("Payment successful! +100 Coins");
+          } catch (e) {
+              alert("Payment failed");
           }
-          refreshUser();
-          alert("Payment successful! +100 Coins");
       }
   };
 

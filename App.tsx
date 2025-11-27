@@ -9,7 +9,7 @@ import { Reader } from './pages/Reader';
 import { Auth } from './pages/Auth';
 import { Admin } from './pages/Admin';
 import { UserProfile } from './pages/UserProfile';
-import { MockBackendService } from './services/mockBackend';
+import { NovelService } from './services/novelService';
 import { User } from './types';
 
 // Context for global state
@@ -43,50 +43,23 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Initialize DB and check session
-    MockBackendService.init();
-    
-    // Check LocalStorage (Persistent) first
-    let storedUserStr = localStorage.getItem('nv_user');
-    let isPersistent = true;
-    
-    // If not in Local, check SessionStorage (Temporary/Tab only)
-    if (!storedUserStr) {
-      storedUserStr = sessionStorage.getItem('nv_user');
-      isPersistent = false;
-    }
-
-    if (storedUserStr) {
-      try {
-        const sessionUser = JSON.parse(storedUserStr);
-        // CRITICAL FIX: Fetch the LATEST user data from the 'database' using the ID.
-        // The stored session string might be stale (missing recent purchases/history).
-        const freshUser = MockBackendService.getUser(sessionUser.id);
-        
-        if (freshUser) {
-          setUser(freshUser);
-          // Update the session storage with the fresh data to keep them in sync
-          if (isPersistent) {
-            localStorage.setItem('nv_user', JSON.stringify(freshUser));
-          } else {
-            sessionStorage.setItem('nv_user', JSON.stringify(freshUser));
-          }
-        } else {
-          // User ID found in session but not in DB (deleted user?) -> Logout
-          setUser(null);
-          localStorage.removeItem('nv_user');
-          sessionStorage.removeItem('nv_user');
+    const initAuth = async () => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            try {
+                const user = await NovelService.loadUser();
+                setUser(user);
+            } catch (err) {
+                console.error("Auth failed", err);
+                localStorage.removeItem('token');
+            }
         }
-      } catch (e) {
-        console.error("Failed to parse session user", e);
-        localStorage.removeItem('nv_user');
-        sessionStorage.removeItem('nv_user');
-      }
-    }
+        setLoading(false);
+    };
+    initAuth();
 
     const storedTheme = localStorage.getItem('nv_theme') as 'light' | 'dark' | 'sepia';
     if (storedTheme) setTheme(storedTheme);
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -101,32 +74,21 @@ export default function App() {
 
   const login = (u: User, remember: boolean = false) => {
     setUser(u);
-    if (remember) {
-      localStorage.setItem('nv_user', JSON.stringify(u));
-      sessionStorage.removeItem('nv_user'); // Clear session to avoid duplicates
-    } else {
-      sessionStorage.setItem('nv_user', JSON.stringify(u));
-      localStorage.removeItem('nv_user'); // Clear local to ensure privacy
-    }
+    // Token is already handled by NovelService.login/signup
   };
 
   const logout = () => {
+    NovelService.logout();
     setUser(null);
-    localStorage.removeItem('nv_user');
-    sessionStorage.removeItem('nv_user');
   };
 
-  const refreshUser = () => {
+  const refreshUser = async () => {
     if (!user) return;
-    const updated = MockBackendService.getUser(user.id);
-    if (updated) {
-      setUser(updated);
-      // Update the specific storage being used based on where it currently exists
-      if (localStorage.getItem('nv_user')) {
-        localStorage.setItem('nv_user', JSON.stringify(updated));
-      } else {
-        sessionStorage.setItem('nv_user', JSON.stringify(updated));
-      }
+    try {
+        const updated = await NovelService.loadUser();
+        setUser(updated);
+    } catch (e) {
+        console.error("Failed to refresh user", e);
     }
   };
 

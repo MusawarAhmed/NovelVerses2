@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { MockBackendService } from '../services/mockBackend';
+import { NovelService } from '../services/novelService';
 import { Novel, Chapter, SiteSettings } from '../types';
 import { AppContext } from '../App';
 import { BookOpen, Bookmark, List, Lock, Unlock, Eye, TrendingUp, Star, Edit, Layers } from 'lucide-react';
@@ -22,23 +22,32 @@ export const NovelDetail: React.FC = () => {
 
   useEffect(() => {
     if (!id) return;
-    const n = MockBackendService.getNovelById(id);
-    if (n) {
-      setNovel(n);
-      setChapters(MockBackendService.getChapters(n.id));
-      setSettings(MockBackendService.getSiteSettings());
-      
-      // Logic for related novels
-      const allNovels = MockBackendService.getNovels();
-      let related = allNovels.filter(item => item.id !== n.id && item.tags.some(t => n.tags.includes(t)));
-      if (related.length < 4) {
-        const remaining = allNovels.filter(item => item.id !== n.id && !related.includes(item));
-        related = [...related, ...remaining];
-      }
-      setRelatedNovels(related.slice(0, 4));
-    } else {
-        navigate('/');
-    }
+    const fetchData = async () => {
+        try {
+            const n = await NovelService.getNovelById(id);
+            if (n) {
+                setNovel(n);
+                const chs = await NovelService.getChapters(n.id);
+                setChapters(chs);
+                setSettings(await NovelService.getSiteSettings());
+                
+                // Logic for related novels
+                const allNovels = await NovelService.getNovels();
+                let related = allNovels.filter(item => item.id !== n.id && item.tags.some(t => n.tags.includes(t)));
+                if (related.length < 4) {
+                    const remaining = allNovels.filter(item => item.id !== n.id && !related.includes(item));
+                    related = [...related, ...remaining];
+                }
+                setRelatedNovels(related.slice(0, 4));
+            } else {
+                navigate('/');
+            }
+        } catch (e) {
+            console.error(e);
+            navigate('/');
+        }
+    };
+    fetchData();
     window.scrollTo(0, 0);
     setActiveTab('about'); // Ensure default is about on load
   }, [id, navigate]);
@@ -49,10 +58,10 @@ export const NovelDetail: React.FC = () => {
     }
   }, [user, novel]);
 
-  const handleBookmark = () => {
+  const handleBookmark = async () => {
     if (!user) return navigate('/auth', { state: { from: location.pathname } });
     if (novel) {
-      MockBackendService.toggleBookmark(user.id, novel.id);
+      await NovelService.toggleBookmark(novel.id);
       refreshUser();
     }
   };

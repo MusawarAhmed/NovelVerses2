@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
-import { MockBackendService } from '../services/mockBackend';
-import { Novel, Chapter, Comment } from '../types';
+import { NovelService } from '../services/novelService';
+import { Novel, Chapter, Comment, SiteSettings } from '../types';
 import { AppContext } from '../App';
 import { ArrowLeft, Settings, ChevronLeft, ChevronRight, Lock, Sparkles, List, MessageSquare, X, ThumbsUp, Zap, Send } from 'lucide-react';
 import { GeminiService } from '../services/geminiService';
@@ -34,66 +34,80 @@ export const Reader: React.FC = () => {
 
   // Comment State
   const [newComment, setNewComment] = useState('');
+  
+  // Settings State
+  const [settings, setSettings] = useState<SiteSettings>({
+      showHero: true, showWeeklyFeatured: true, showRankings: true, showRising: true, showTags: true, showPromo: true, enablePayments: true, showDemoCredentials: true, showChapterSummary: true
+  });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!novelId || !chapterId) return;
-    const n = MockBackendService.getNovelById(novelId);
-    const c = MockBackendService.getChapter(chapterId);
-    const allChapters = MockBackendService.getChapters(novelId);
-    const settings = MockBackendService.getSiteSettings();
+    
+    const fetchData = async () => {
+        try {
+            const n = await NovelService.getNovelById(novelId);
+            const c = await NovelService.getChapter(chapterId);
+            const allChapters = await NovelService.getChapters(novelId);
+            const settings = await NovelService.getSiteSettings();
+            const chapterComments = await NovelService.getComments(chapterId);
 
-    if (n && c) {
-      setNovel(n);
-      setChapter(c);
-      setChapters(allChapters);
-      setComments(MockBackendService.getComments(c.id));
-      
-      // Logic:
-      // If Not Premium OR Novel is Free -> Unlocked
-      // If Premium AND Novel not Free:
-      //    If Payments Enabled -> Unlocked if Logged In AND Purchased
-      //    If Payments Disabled -> Unlocked if Logged In (Global Override only skips payment, not login)
-      
-      const isNovelFree = !!n.isFree;
-      const isPremium = c.isPaid && !isNovelFree;
-      const paymentsEnabled = settings.enablePayments;
-      
-      // CRITICAL FIX: Fetch fresh user data from DB to avoid stale context state issues
-      const currentUser = user ? MockBackendService.getUser(user.id) : null;
-      const isLoggedIn = !!currentUser;
+            if (n && c) {
+              setNovel(n);
+              setChapter(c);
+              setChapters(allChapters);
+              setComments(chapterComments);
+              
+              const isNovelFree = !!n.isFree;
+              const isPremium = c.isPaid && !isNovelFree;
+              const paymentsEnabled = settings.enablePayments;
+              
+              // CRITICAL FIX: Fetch fresh user data from DB to avoid stale context state issues
+              let currentUser = user;
+              if (user) {
+                  try {
+                      currentUser = await NovelService.loadUser();
+                  } catch (e) {
+                      console.error("Failed to load fresh user", e);
+                  }
+              }
+              const isLoggedIn = !!currentUser;
 
-      let isUnlocked = !isPremium; // Free chapters always unlocked
+              let isUnlocked = !isPremium; // Free chapters always unlocked
 
-      if (isPremium) {
-          if (!paymentsEnabled) {
-             // If payments off, require login only
-             isUnlocked = isLoggedIn;
-          } else {
-             // If payments on, require login + purchase (or admin)
-             // Check against the FRESH user object from DB
-             isUnlocked = isLoggedIn && (currentUser?.purchasedChapters.includes(c.id) || currentUser?.role === 'admin');
-          }
-      }
+              if (isPremium) {
+                  if (!paymentsEnabled) {
+                     // If payments off, require login only
+                     isUnlocked = isLoggedIn;
+                  } else {
+                     // If payments on, require login + purchase (or admin)
+                     isUnlocked = isLoggedIn && (currentUser?.purchasedChapters.includes(c.id) || currentUser?.role === 'admin');
+                  }
+              }
 
-      setLocked(!isUnlocked);
-      setSummary(null);
-      setScrollProgress(0); // Reset progress on chapter change
-      setNewComment('');
+              setLocked(!isUnlocked);
+              setSummary(null);
+              setScrollProgress(0); // Reset progress on chapter change
+              setNewComment('');
 
-      // Save Reading History if user is logged in (using fresh user data logic)
-      if (currentUser) {
-        MockBackendService.saveReadingHistory(currentUser.id, novelId, chapterId);
-      }
+              // Save Reading History if user is logged in
+              if (currentUser) {
+                await NovelService.saveReadingHistory(novelId, chapterId);
+              }
 
-    } else {
-      // Chapter might not exist if ID changed or invalid
-      navigate('/');
-    }
+            } else {
+              navigate('/');
+            }
+        } catch (e) {
+            console.error(e);
+            navigate('/');
+        }
+    };
+    fetchData();
     window.scrollTo(0, 0);
-  }, [novelId, chapterId, user?.id, user?.purchasedChapters.length, navigate]); // Depend on user ID/Purchases to re-run check
+  }, [novelId, chapterId, navigate]); 
 
   // Scroll Listener for Percentage
   useEffect(() => {
@@ -108,18 +122,20 @@ export const Reader: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handlePurchase = () => {
+  const handlePurchase = async () => {
     if (!user) return navigate('/auth', { state: { from: location.pathname } });
     
     if (!chapter) return;
 
-    const success = MockBackendService.purchaseChapter(user.id, chapter.id);
-    if (success) {
-      setLocked(false);
-      refreshUser(); // Update global context
-      alert("Chapter purchased successfully!");
-    } else {
-      alert("Insufficient coins! Please top up.");
+    try {
+        const res = await NovelService.purchaseChapter(chapter.id);
+        if (res.success) {
+          setLocked(false);
+          refreshUser(); // Update global context
+          alert("Chapter purchased successfully!");
+        }
+    } catch (err: any) {
+        alert(err.response?.data?.msg || "Purchase failed");
     }
   };
 
@@ -147,16 +163,20 @@ export const Reader: React.FC = () => {
     setSummarizing(false);
   };
 
-  const handlePostComment = () => {
+  const handlePostComment = async () => {
     if (!user) {
         setActivePanel('none');
         return navigate('/auth', { state: { from: location.pathname } });
     }
     if (!newComment.trim() || !chapter) return;
 
-    const comment = MockBackendService.createComment(chapter.id, user.id, user.username, newComment);
-    setComments([comment, ...comments]);
-    setNewComment('');
+    try {
+        const comment = await NovelService.createComment(chapter.id, user.id, user.username, newComment);
+        setComments([comment, ...comments]);
+        setNewComment('');
+    } catch (e) {
+        console.error("Failed to post comment", e);
+    }
   };
 
   const handleReply = (username: string) => {
@@ -183,7 +203,7 @@ export const Reader: React.FC = () => {
   }, {} as Record<string, Chapter[]>);
 
   // Settings check for display text
-  const settings = MockBackendService.getSiteSettings();
+  // Used from state 'settings'
 
   // Calculate Display Price
   const effectivePrice = (novel.offerPrice && novel.offerPrice > 0) ? novel.offerPrice : chapter.price;
