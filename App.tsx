@@ -6,11 +6,13 @@ import { Search } from './pages/Search';
 import { Browse } from './pages/Browse';
 import { NovelDetail } from './pages/NovelDetail';
 import { Reader } from './pages/Reader';
+import { Stories } from './pages/Stories';
 import { Auth } from './pages/Auth';
 import { Admin } from './pages/Admin';
 import { UserProfile } from './pages/UserProfile';
 import { NovelService } from './services/novelService';
 import { User } from './types';
+import { LoadingOverlay } from './components/LoadingOverlay';
 
 // Context for global state
 export const AppContext = React.createContext<{
@@ -92,7 +94,7 @@ export default function App() {
     }
   };
 
-  if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  if (loading) return <LoadingOverlay />;
 
   return (
     <AppContext.Provider value={{ user, login, logout, refreshUser, theme, setTheme }}>
@@ -103,6 +105,7 @@ export default function App() {
             <Route index element={<Home />} />
             <Route path="search" element={<Search />} />
             <Route path="browse/:type" element={<Browse />} />
+            <Route path="stories/:category" element={<Stories />} />
             <Route path="novel/:id" element={<NovelDetail />} />
             <Route path="read/:novelId/:chapterId" element={<Reader />} />
             <Route path="auth" element={<Auth />} />

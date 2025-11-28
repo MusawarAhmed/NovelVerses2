@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const novelSchema = new mongoose.Schema({
   title: { type: String, required: true },
+  slug: { type: String, unique: true },
   author: { type: String, required: true },
   description: { type: String },
   coverUrl: { type: String },

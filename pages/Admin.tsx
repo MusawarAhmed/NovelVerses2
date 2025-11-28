@@ -6,7 +6,7 @@ import { Novel, Transaction, User, Chapter, SiteSettings } from '../types';
 import { 
   Plus, Sparkles, Book, FileText, DollarSign, BarChart2, Users, 
   Activity, Trash2, Shield, User as UserIcon, Edit, X, Save, 
-  RefreshCw, Bold, Italic, Underline, List, Code, Type, Strikethrough, Eye, Layers, LayoutTemplate, CreditCard, EyeOff
+  RefreshCw, Bold, Italic, Underline, List, Code, Type, Strikethrough, Eye, Layers, LayoutTemplate, CreditCard, EyeOff, Bell, Send
 } from 'lucide-react';
 
 // --- Custom Rich Text Editor Component ---
@@ -498,6 +498,7 @@ export const Admin: React.FC = () => {
               <SidebarItem id="novels" label="Novels" icon={Book} />
               <SidebarItem id="chapters" label="Chapters" icon={FileText} />
               <SidebarItem id="users" label="Users & Roles" icon={Users} />
+              <SidebarItem id="notifications" label="Notifications" icon={Bell} />
               <SidebarItem id="frontend" label="Site Settings" icon={LayoutTemplate} />
           </nav>
       </div>
@@ -508,6 +509,113 @@ export const Admin: React.FC = () => {
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-white capitalize">{activeTab.replace('-', ' ')}</h1>
             </div>
+
+            {/* Notifications Tab */}
+            {activeTab === 'notifications' && (
+                <div className="animate-fade-in">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+                        <div className="mb-6">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">System Announcements</h3>
+                            <p className="text-sm text-slate-500">Send notifications to all users.</p>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Announcement Form */}
+                            <form onSubmit={async (e) => {
+                                e.preventDefault();
+                                const form = e.target as HTMLFormElement;
+                                const title = (form.elements.namedItem('title') as HTMLInputElement).value;
+                                const message = (form.elements.namedItem('message') as HTMLTextAreaElement).value;
+                                const link = (form.elements.namedItem('link') as HTMLInputElement).value;
+                                
+                                if (confirm('Send this announcement to ALL users?')) {
+                                    try {
+                                        await NovelService.createAnnouncement(title, message, link);
+                                        alert('Announcement sent successfully!');
+                                        form.reset();
+                                    } catch (err) {
+                                        alert('Failed to send announcement');
+                                    }
+                                }
+                            }} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
+                                    <input 
+                                        name="title"
+                                        id="notif-title"
+                                        required
+                                        className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
+                                        placeholder="e.g., Maintenance Update"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Message</label>
+                                    <textarea 
+                                        name="message"
+                                        id="notif-message"
+                                        required
+                                        rows={4}
+                                        className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary outline-none resize-none"
+                                        placeholder="Enter your announcement message..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Link (Optional)</label>
+                                    <input 
+                                        name="link"
+                                        id="notif-link"
+                                        className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary outline-none font-mono text-xs"
+                                        placeholder="/novel/..."
+                                    />
+                                </div>
+                                <button 
+                                    type="submit"
+                                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                                >
+                                    <Send size={18} />
+                                    Send Announcement
+                                </button>
+                            </form>
+
+                            {/* Quick Promote Section */}
+                            <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-4 border border-slate-100 dark:border-slate-700">
+                                <h4 className="font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                                    <Sparkles size={16} className="text-yellow-500" />
+                                    Quick Promote
+                                </h4>
+                                <p className="text-xs text-slate-500 mb-4">Click a novel to auto-fill the announcement form.</p>
+                                
+                                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                                    {novels.slice(0, 10).map(novel => (
+                                        <button
+                                            key={novel.id}
+                                            onClick={() => {
+                                                const titleInput = document.getElementById('notif-title') as HTMLInputElement;
+                                                const msgInput = document.getElementById('notif-message') as HTMLTextAreaElement;
+                                                const linkInput = document.getElementById('notif-link') as HTMLInputElement;
+                                                
+                                                if (titleInput) titleInput.value = `New Arrival: ${novel.title}`;
+                                                if (msgInput) msgInput.value = `Check out this amazing new novel by ${novel.author}! Read it now on NovelVerse.`;
+                                                if (linkInput) linkInput.value = `/novel/${(novel as any).slug || novel.id}`;
+                                            }}
+                                            className="w-full text-left p-2 hover:bg-white dark:hover:bg-slate-600 rounded border border-transparent hover:border-slate-200 dark:hover:border-slate-500 transition-all flex items-center gap-3 group"
+                                        >
+                                            <img src={novel.coverUrl} alt={novel.title} className="w-8 h-12 object-cover rounded shadow-sm" />
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-medium text-slate-900 dark:text-white truncate group-hover:text-primary transition-colors">{novel.title}</div>
+                                                <div className="text-xs text-slate-500 truncate">{novel.author}</div>
+                                            </div>
+                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Plus size={16} className="text-primary" />
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Analytics Tab */}
             {activeTab === 'analytics' && (

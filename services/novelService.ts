@@ -33,8 +33,9 @@ export const NovelService = {
     },
 
     // Novels
-    getNovels: async (): Promise<Novel[]> => {
-        const res = await api.get('/novels');
+    getNovels: async (params?: { limit?: number, skip?: number, category?: string, sort?: string, status?: string }): Promise<Novel[]> => {
+        const query = new URLSearchParams(params as any).toString();
+        const res = await api.get(`/novels?${query}`);
         return mapId(res.data);
     },
     getNovelById: async (id: string): Promise<Novel> => {
@@ -83,9 +84,17 @@ export const NovelService = {
         const res = await api.get(`/comments/chapter/${chapterId}`);
         return mapId(res.data);
     },
+    getNovelReviews: async (novelId: string): Promise<Comment[]> => {
+        const res = await api.get(`/comments/novel/${novelId}`);
+        return mapId(res.data);
+    },
     createComment: async (chapterId: string, userId: string, username: string, content: string) => {
         // Note: userId is taken from token in backend, but we keep signature compatible if needed or just pass payload
         const res = await api.post('/comments', { chapterId, content, username });
+        return mapId(res.data);
+    },
+    createReview: async (novelId: string, content: string, rating: number) => {
+        const res = await api.post('/comments', { novelId, content, rating });
         return mapId(res.data);
     },
 
@@ -150,14 +159,14 @@ export const NovelService = {
 
     // Helpers for Home Page (Client-side filtering for now)
     getWeeklyFeatured: async (limit?: number): Promise<Novel[]> => {
-        const novels = await NovelService.getNovels();
+        const novels = await NovelService.getNovels({ limit: 1000 });
         const featured = novels.filter(n => n.isWeeklyFeatured);
         const result = featured.length > 0 ? featured : novels.slice(0, 5);
         return limit ? result.slice(0, limit) : result;
     },
 
     getRankedNovels: async (type: 'Power' | 'Collection' | 'Active', limit?: number): Promise<Novel[]> => {
-        const novels = await NovelService.getNovels();
+        const novels = await NovelService.getNovels({ limit: 1000 });
         let sorted: Novel[] = [];
         
         if (type === 'Power') {
@@ -173,7 +182,7 @@ export const NovelService = {
     },
 
     getRisingStars: async (limit?: number): Promise<Novel[]> => {
-        const novels = await NovelService.getNovels();
+        const novels = await NovelService.getNovels({ limit: 1000 });
         const rising = novels.filter(n => n.views < 50000 && n.rating >= 4.5);
         const result = rising.length > 0 ? rising : novels;
         return limit ? result.slice(0, limit) : result;
@@ -200,8 +209,8 @@ export const NovelService = {
         const res = await api.delete(`/notifications/${id}`);
         return res.data;
     },
-    createAnnouncement: async (title: string, message: string) => {
-        const res = await api.post('/notifications/announcement', { title, message });
+    createAnnouncement: async (title: string, message: string, link?: string) => {
+        const res = await api.post('/notifications/announcement', { title, message, link });
         return res.data;
     },
 

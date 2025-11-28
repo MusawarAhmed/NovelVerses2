@@ -94,10 +94,11 @@ router.delete('/:id', auth, async (req, res) => {
 // Create system announcement (Admin only)
 router.post('/announcement', auth, admin, async (req, res) => {
     try {
-        const { title, message } = req.body;
+        const { title, message, link } = req.body;
         
         // Get all users
         const users = await User.find().select('_id');
+        console.log(`Found ${users.length} users for announcement.`);
         
         // Create notification for each user
         const notifications = users.map(user => ({
@@ -105,11 +106,12 @@ router.post('/announcement', auth, admin, async (req, res) => {
             type: 'system_announcement',
             title,
             message,
-            link: '/',
+            link: link || '/',
             metadata: {}
         }));
         
-        await Notification.insertMany(notifications);
+        const result = await Notification.insertMany(notifications);
+        console.log(`Created ${result.length} notifications.`);
         
         res.json({ msg: `Announcement sent to ${users.length} users` });
     } catch (err) {

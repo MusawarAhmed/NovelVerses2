@@ -56,6 +56,11 @@ export const Search: React.FC = () => {
     fetchResults();
   }, [searchQuery]);
 
+  const getNovelLink = (n: Novel) => {
+      if (n.slug) return `/novel/${n.slug}_${n.id}`;
+      return `/novel/${n.id}`;
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 min-h-[80vh]">
       <SEO 
@@ -79,7 +84,7 @@ export const Search: React.FC = () => {
         <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {results.map((novel) => (
             <StaggerItem key={novel.id}>
-                <Link to={`/novel/${novel.id}`} className="group block bg-white dark:bg-slate-800 rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 dark:border-slate-700 overflow-hidden h-full flex flex-col">
+                <Link to={getNovelLink(novel)} className="group block bg-white dark:bg-slate-800 rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 dark:border-slate-700 overflow-hidden h-full flex flex-col">
                 <div className="relative aspect-[2/3] overflow-hidden">
                     <img 
                     src={novel.coverUrl} 

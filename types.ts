@@ -20,6 +20,7 @@ export interface User {
 export interface Novel {
   id: string;
   title: string;
+  slug?: string;
   author: string;
   description: string;
   coverUrl: string;
@@ -57,11 +58,13 @@ export interface Transaction {
 
 export interface Comment {
   id: string;
-  chapterId: string;
+  chapterId?: string;
+  novelId?: string;
   userId: string;
   username: string;
   content: string;
   likes: number;
+  rating?: number;
   createdAt: string;
   avatarColor?: string; 
 }

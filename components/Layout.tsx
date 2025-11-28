@@ -5,6 +5,7 @@ import { BookOpen, User, Sun, Moon, LogOut, ShieldCheck, Coins, Search as Search
 import { AppContext } from '../App';
 import { MockBackendService } from '../services/mockBackend';
 import { Novel } from '../types';
+import { NotificationBell } from './NotificationBell';
 
 export const Layout: React.FC = () => {
   const { user, logout, theme, setTheme } = useContext(AppContext);
@@ -166,6 +167,8 @@ export const Layout: React.FC = () => {
                       <BookOpen size={20} />
                   </div>
                 </Link>
+
+                {user && <NotificationBell />}
 
                 <button
                   onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

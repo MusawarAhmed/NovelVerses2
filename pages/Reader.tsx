@@ -7,6 +7,7 @@ import { ArrowLeft, Settings, ChevronLeft, ChevronRight, Lock, Sparkles, List, M
 import { GeminiService } from '../services/geminiService';
 import { FadeIn, ScaleButton, BlurIn } from '../components/Anim';
 import { motion, AnimatePresence } from 'framer-motion';
+import { LoadingOverlay } from '../components/LoadingOverlay';
 
 export const Reader: React.FC = () => {
   const { novelId, chapterId } = useParams();
@@ -44,6 +45,10 @@ export const Reader: React.FC = () => {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setActivePanel('none');
+  }, [chapter]);
+
+  useEffect(() => {
     if (!novelId || !chapterId) return;
     
     const fetchData = async () => {
@@ -59,6 +64,7 @@ export const Reader: React.FC = () => {
               setChapter(c);
               setChapters(allChapters);
               setComments(chapterComments);
+              setSettings(settings);
               
               const isNovelFree = !!n.isFree;
               const isPremium = c.isPaid && !isNovelFree;
@@ -187,7 +193,7 @@ export const Reader: React.FC = () => {
       }
   };
 
-  if (!novel || !chapter) return <div className="p-10 text-center">Loading...</div>;
+  if (!novel || !chapter) return <LoadingOverlay />;
 
   const isSepia = theme === 'sepia';
   const currentChapterIndex = chapters.findIndex(c => c.id === chapter.id);

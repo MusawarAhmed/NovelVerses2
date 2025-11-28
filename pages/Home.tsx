@@ -17,26 +17,41 @@ export const Home: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-        const weekly = await NovelService.getWeeklyFeatured(5);
-        setWeeklyFeatured(weekly);
-        setMainFeature(weekly[0] || null);
-        
-        const power = await NovelService.getRankedNovels('Power', 5);
-        setPowerRanking(power);
-        
-        const collection = await NovelService.getRankedNovels('Collection', 5);
-        setCollectionRanking(collection);
-        
-        const active = await NovelService.getRankedNovels('Active', 5);
-        setActiveRanking(active);
-        
-        const rising = await NovelService.getRisingStars(4);
-        setRisingStars(rising);
-        
-        setSettings(await NovelService.getSiteSettings());
+        try {
+            // Load settings first to ensure page renders something
+            const siteSettings = await NovelService.getSiteSettings();
+            setSettings(siteSettings);
+
+            const weekly = await NovelService.getWeeklyFeatured(5);
+            setWeeklyFeatured(weekly);
+            setMainFeature(weekly[0] || null);
+            
+            const power = await NovelService.getRankedNovels('Power', 5);
+            setPowerRanking(power);
+            
+            const collection = await NovelService.getRankedNovels('Collection', 5);
+            setCollectionRanking(collection);
+            
+            const active = await NovelService.getRankedNovels('Active', 5);
+            setActiveRanking(active);
+            
+            const rising = await NovelService.getRisingStars(4);
+            setRisingStars(rising);
+        } catch (e) {
+            console.error("Failed to fetch home data", e);
+            // Ensure settings are set if they weren't already
+            if (!settings) {
+                 setSettings(await NovelService.getSiteSettings());
+            }
+        }
     };
     fetchData();
   }, []);
+
+  const getNovelLink = (n: Novel) => {
+      if (n.slug) return `/novel/${n.slug}_${n.id}`;
+      return `/novel/${n.id}`;
+  };
 
   const RankingList = ({ title, novels, icon: Icon, colorClass }: { title: string, novels: Novel[], icon: any, colorClass: string }) => (
       <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-100 dark:border-slate-800 shadow-sm h-full">
@@ -48,7 +63,7 @@ export const Home: React.FC = () => {
           </div>
           <div className="space-y-4">
               {novels.map((novel, index) => (
-                  <Link key={novel.id} to={`/novel/${novel.id}`} className="flex items-start group">
+                  <Link key={novel.id} to={getNovelLink(novel)} className="flex items-start group">
                       <div className={`text-lg font-bold w-8 ${index < 3 ? colorClass : 'text-slate-300 dark:text-slate-600'}`}>
                           {index + 1 < 10 ? `0${index + 1}` : index + 1}
                       </div>
@@ -101,12 +116,12 @@ export const Home: React.FC = () => {
                             {mainFeature.description}
                         </p>
                         <div className="flex gap-4 justify-center md:justify-start">
-                             <Link to={`/novel/${mainFeature.id}`}>
+                             <Link to={getNovelLink(mainFeature)}>
                                 <ScaleButton className="bg-primary hover:bg-indigo-600 text-white px-8 py-3 rounded-full font-bold transition-all shadow-lg shadow-primary/30">
                                     Read Now
                                 </ScaleButton>
                             </Link>
-                            <Link to={`/novel/${mainFeature.id}`}>
+                            <Link to={getNovelLink(mainFeature)}>
                                 <ScaleButton className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-full font-bold transition-all backdrop-blur-sm">
                                     Details
                                 </ScaleButton>
@@ -129,7 +144,7 @@ export const Home: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
                     {weeklyFeatured.map(novel => (
-                        <Link key={novel.id} to={`/novel/${novel.id}`} className="group">
+                        <Link key={novel.id} to={getNovelLink(novel)} className="group">
                             <div className="relative aspect-[2/3] rounded-lg overflow-hidden mb-3 shadow-sm group-hover:shadow-md transition-all">
                                 <img src={novel.coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={novel.title}/>
                                 <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">
@@ -184,7 +199,7 @@ export const Home: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {risingStars.map(novel => (
-                        <Link key={novel.id} to={`/novel/${novel.id}`} className="flex bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:shadow-md transition-shadow group">
+                        <Link key={novel.id} to={getNovelLink(novel)} className="flex bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:shadow-md transition-shadow group">
                             <div className="w-20 h-28 flex-shrink-0 rounded overflow-hidden mr-4">
                                 <img src={novel.coverUrl} className="w-full h-full object-cover" alt={novel.title}/>
                             </div>

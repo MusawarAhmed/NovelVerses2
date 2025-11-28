@@ -7,9 +7,27 @@ const Notification = require('../models/Notification');
 const { auth, admin } = require('../middleware/authMiddleware');
 
 // Get chapters for a novel
+// Get chapters for a novel
 router.get('/novel/:novelId', async (req, res) => {
     try {
-        const chapters = await Chapter.find({ novelId: req.params.novelId }).sort({ order: 1 });
+        let novelId = req.params.novelId;
+        
+        // Check if it's a slug (not an ObjectId)
+        if (!novelId.match(/^[0-9a-fA-F]{24}$/)) {
+             // Try to find novel by slug first
+             const novel = await Novel.findOne({ slug: novelId });
+             if (novel) {
+                 novelId = novel._id;
+             } else {
+                 // If not found by slug, it might be a slug_id format or just invalid
+                 const idMatch = novelId.match(/_([0-9a-fA-F]{24})$/);
+                 if (idMatch) {
+                     novelId = idMatch[1];
+                 }
+             }
+        }
+
+        const chapters = await Chapter.find({ novelId: novelId }).sort({ order: 1 });
         res.json(chapters);
     } catch (err) {
         console.error(err.message);
@@ -18,9 +36,18 @@ router.get('/novel/:novelId', async (req, res) => {
 });
 
 // Get single chapter
+// Get single chapter
 router.get('/:id', async (req, res) => {
     try {
-        const chapter = await Chapter.findById(req.params.id);
+        let query = req.params.id;
+        
+        // Check if it's a slug_id format (ends with _ObjectId)
+        const idMatch = query.match(/_([0-9a-fA-F]{24})$/);
+        if (idMatch) {
+            query = idMatch[1];
+        }
+
+        const chapter = await Chapter.findById(query);
         if (!chapter) return res.status(404).json({ msg: 'Chapter not found' });
         res.json(chapter);
     } catch (err) {

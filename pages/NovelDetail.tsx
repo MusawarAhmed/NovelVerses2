@@ -1,9 +1,10 @@
+
 import React, { useEffect, useState, useContext, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { NovelService } from '../services/novelService';
-import { Novel, Chapter, SiteSettings } from '../types';
+import { Novel, Chapter, SiteSettings, Comment } from '../types';
 import { AppContext } from '../App';
-import { BookOpen, Bookmark, List, Lock, Unlock, Eye, TrendingUp, Star, Edit, Layers } from 'lucide-react';
+import { BookOpen, Bookmark, List, Lock, Unlock, Eye, TrendingUp, Star, Edit, Layers, MessageSquare, ThumbsUp, Send } from 'lucide-react';
 import { FadeIn, ScaleButton } from '../components/Anim';
 import { SEO } from '../components/SEO';
 
@@ -16,7 +17,10 @@ export const NovelDetail: React.FC = () => {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [relatedNovels, setRelatedNovels] = useState<Novel[]>([]);
-  const [activeTab, setActiveTab] = useState<'about' | 'chapters'>('about');
+  const [activeTab, setActiveTab] = useState<'about' | 'chapters' | 'reviews'>('about');
+  const [reviews, setReviews] = useState<Comment[]>([]);
+  const [newReviewContent, setNewReviewContent] = useState('');
+  const [newReviewRating, setNewReviewRating] = useState(5);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
 
@@ -30,15 +34,17 @@ export const NovelDetail: React.FC = () => {
                 const chs = await NovelService.getChapters(n.id);
                 setChapters(chs);
                 setSettings(await NovelService.getSiteSettings());
+                const novelReviews = await NovelService.getNovelReviews(n.id);
+                setReviews(novelReviews);
                 
                 // Logic for related novels
-                const allNovels = await NovelService.getNovels();
+                const allNovels = await NovelService.getNovels({ limit: 100 });
                 let related = allNovels.filter(item => item.id !== n.id && item.tags.some(t => n.tags.includes(t)));
-                if (related.length < 4) {
+                if (related.length < 6) {
                     const remaining = allNovels.filter(item => item.id !== n.id && !related.includes(item));
                     related = [...related, ...remaining];
                 }
-                setRelatedNovels(related.slice(0, 4));
+                setRelatedNovels(related.slice(0, 6));
             } else {
                 navigate('/');
             }
@@ -101,6 +107,25 @@ export const NovelDetail: React.FC = () => {
   // Sort volumes keys
   const sortedVolumes = Object.keys(groupedChapters).sort();
 
+  const handlePostReview = async () => {
+      if (!user) return navigate('/auth', { state: { from: location.pathname } });
+      if (!novel || !newReviewContent.trim()) return;
+
+      try {
+          const review = await NovelService.createReview(novel.id, newReviewContent, newReviewRating);
+          setReviews([review, ...reviews]);
+          setNewReviewContent('');
+          setNewReviewRating(5);
+      } catch (e) {
+          console.error("Failed to post review", e);
+      }
+  };
+
+  const getNovelLink = (n: Novel) => {
+      if (n.slug) return `/novel/${n.slug}_${n.id}`;
+      return `/novel/${n.id}`;
+  };
+
   if (!novel) return <div>Loading...</div>;
 
   const latestChapter = chapters.length > 0 ? chapters[chapters.length - 1] : null;
@@ -153,7 +178,12 @@ export const NovelDetail: React.FC = () => {
 
                   <div className="flex flex-wrap gap-3 justify-center md:justify-start">
                       <ScaleButton 
-                          onClick={() => chapters.length > 0 && navigate(`/read/${novel.id}/${chapters[0].id}`)}
+                          onClick={() => {
+                              if (chapters.length > 0) {
+                                  const nId = novel.slug ? `${novel.slug}_${novel.id}` : novel.id;
+                                  navigate(`/read/${nId}/${chapters[0].id}`);
+                              }
+                          }}
                           className="bg-primary hover:bg-indigo-700 text-white px-8 py-2.5 rounded-full font-bold shadow-lg shadow-indigo-500/30 transition-all"
                       >
                           READ NOW
@@ -177,25 +207,31 @@ export const NovelDetail: React.FC = () => {
           {/* Added scroll-mt-24 to handle sticky header offset when scrolling into view */}
           <div className="mt-12 scroll-mt-24" ref={tabsRef}>
               <div className="border-b border-slate-200 dark:border-slate-800 mb-8">
-                  <div className="flex space-x-8">
+                  <div className="flex space-x-8 overflow-x-auto">
                       <button 
                           onClick={() => setActiveTab('about')}
-                          className={`pb-4 text-lg font-bold border-b-2 transition-colors ${activeTab === 'about' ? 'border-primary text-slate-900 dark:text-white' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                          className={`pb-4 text-lg font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'about' ? 'border-primary text-slate-900 dark:text-white' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                       >
                           About
                       </button>
                       <button 
                           onClick={() => setActiveTab('chapters')}
-                          className={`pb-4 text-lg font-bold border-b-2 transition-colors ${activeTab === 'chapters' ? 'border-primary text-slate-900 dark:text-white' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                          className={`pb-4 text-lg font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'chapters' ? 'border-primary text-slate-900 dark:text-white' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                       >
                           Table of Contents
+                      </button>
+                      <button 
+                          onClick={() => setActiveTab('reviews')}
+                          className={`pb-4 text-lg font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'reviews' ? 'border-primary text-slate-900 dark:text-white' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                      >
+                          Reviews ({reviews.length})
                       </button>
                   </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                  <div className="lg:col-span-2">
-                      {activeTab === 'about' ? (
+                  <div className="lg:col-span-3">
+                      {activeTab === 'about' && (
                           <FadeIn>
                               <div className="prose dark:prose-invert max-w-none mb-8 text-slate-600 dark:text-slate-300 leading-relaxed">
                                   <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Synopsis</h3>
@@ -217,7 +253,9 @@ export const NovelDetail: React.FC = () => {
                                   </div>
                               </div>
                           </FadeIn>
-                      ) : (
+                      )}
+
+                      {activeTab === 'chapters' && (
                           <FadeIn>
                               <div className="mb-8 bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900/30 flex justify-between items-center">
                                   <div>
@@ -262,7 +300,7 @@ export const NovelDetail: React.FC = () => {
                                                   return (
                                                       <Link 
                                                           key={chapter.id}
-                                                          to={`/read/${novel.id}/${chapter.id}`}
+                                                          to={`/read/${novel.slug ? `${novel.slug}_${novel.id}` : novel.id}/${chapter.id}`}
                                                           className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
                                                       >
                                                           <div className="flex-1 min-w-0 mr-4">
@@ -290,26 +328,115 @@ export const NovelDetail: React.FC = () => {
                               </div>
                           </FadeIn>
                       )}
+
+                      {activeTab === 'reviews' && (
+                          <FadeIn>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+                                  <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-2xl text-center">
+                                      <div className="text-5xl font-bold text-slate-900 dark:text-white mb-2">{novel.rating}</div>
+                                      <div className="flex justify-center text-yellow-400 mb-2">
+                                          {[1,2,3,4,5].map(i => (
+                                              <Star key={i} size={20} className={`${i <= Math.round(novel.rating) ? 'fill-current' : 'text-slate-300 dark:text-slate-700'}`} />
+                                          ))}
+                                      </div>
+                                      <p className="text-sm text-slate-500">{reviews.length} reviews</p>
+                                  </div>
+                                  
+                                  <div className="md:col-span-2">
+                                      {user ? (
+                                          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
+                                              <h3 className="font-bold mb-4">Write a Review</h3>
+                                              <div className="flex gap-2 mb-4">
+                                                  {[1,2,3,4,5].map(i => (
+                                                      <button 
+                                                          key={i}
+                                                          onClick={() => setNewReviewRating(i)}
+                                                          className="focus:outline-none transition-transform hover:scale-110"
+                                                      >
+                                                          <Star size={24} className={`${i <= newReviewRating ? 'text-yellow-400 fill-current' : 'text-slate-300 dark:text-slate-600'}`} />
+                                                      </button>
+                                                  ))}
+                                              </div>
+                                              <textarea 
+                                                  value={newReviewContent}
+                                                  onChange={(e) => setNewReviewContent(e.target.value)}
+                                                  placeholder="Share your thoughts about this novel..."
+                                                  className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border-transparent focus:ring-2 focus:ring-primary outline-none text-sm resize-none h-32 mb-4"
+                                              ></textarea>
+                                              <div className="flex justify-end">
+                                                  <button 
+                                                      onClick={handlePostReview}
+                                                      disabled={!newReviewContent.trim()}
+                                                      className="bg-primary text-white px-6 py-2 rounded-full font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                                                  >
+                                                      <Send size={16} className="mr-2" /> Post Review
+                                                  </button>
+                                              </div>
+                                          </div>
+                                      ) : (
+                                          <div className="h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-6">
+                                              <p className="text-slate-500 mb-4">Login to write a review</p>
+                                              <Link to="/auth" state={{ from: location.pathname }} className="text-primary font-bold hover:underline">Login Now</Link>
+                                          </div>
+                                      )}
+                                  </div>
+                              </div>
+
+                              <div className="space-y-6">
+                                  {reviews.map(review => (
+                                      <div key={review.id} className="flex gap-4 p-6 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                                          <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold ${review.avatarColor || 'bg-indigo-500'}`}>
+                                              {review.username[0]}
+                                          </div>
+                                          <div className="flex-1">
+                                              <div className="flex items-center justify-between mb-2">
+                                                  <div>
+                                                      <span className="font-bold text-slate-900 dark:text-white mr-2">{review.username}</span>
+                                                      <span className="text-xs text-slate-500">{getTimeAgo(review.createdAt)}</span>
+                                                  </div>
+                                                  {review.rating && (
+                                                      <div className="flex text-yellow-400">
+                                                          {[1,2,3,4,5].map(i => (
+                                                              <Star key={i} size={12} className={`${i <= review.rating! ? 'fill-current' : 'text-slate-300 dark:text-slate-600'}`} />
+                                                          ))}
+                                                      </div>
+                                                  )}
+                                              </div>
+                                              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">{review.content}</p>
+                                              <div className="flex items-center mt-4 gap-4">
+                                                  <button className="flex items-center text-xs text-slate-500 hover:text-primary transition-colors">
+                                                      <ThumbsUp size={14} className="mr-1" /> {review.likes} Helpful
+                                                  </button>
+                                              </div>
+                                          </div>
+                                      </div>
+                                  ))}
+                                  {reviews.length === 0 && (
+                                      <div className="text-center py-10 text-slate-500">
+                                          No reviews yet. Be the first to review!
+                                      </div>
+                                  )}
+                              </div>
+                          </FadeIn>
+                      )}
                   </div>
 
-                  {/* Sidebar - You Might Also Like */}
-                  <div className="lg:col-span-1">
-                      <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center">
-                          <TrendingUp size={20} className="mr-2 text-primary"/> You Might Also Like
+                  {/* You Might Also Like - Full Width Bottom Section */}
+                  <div className="lg:col-span-3 mt-12 pt-12 border-t border-slate-200 dark:border-slate-800">
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center">
+                          <TrendingUp size={24} className="mr-2 text-primary"/> You Might Also Like
                       </h3>
-                      <div className="space-y-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                           {relatedNovels.map(related => (
-                              <Link key={related.id} to={`/novel/${related.id}`} className="flex gap-3 group">
-                                  <div className="w-16 h-24 flex-shrink-0 rounded overflow-hidden shadow-sm">
-                                      <img src={related.coverUrl} alt={related.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                                  </div>
-                                  <div className="flex-1 min-w-0 py-1">
-                                      <h4 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2 group-hover:text-primary transition-colors mb-1">{related.title}</h4>
-                                      <p className="text-xs text-slate-500 line-clamp-1 mb-1">{related.category}</p>
-                                      <div className="flex items-center text-xs text-yellow-500">
-                                          <Star size={10} className="fill-current mr-1" /> {related.rating}
+                              <Link key={related.id} to={getNovelLink(related)} className="group block">
+                                  <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-sm mb-3 relative">
+                                      <img src={related.coverUrl} alt={related.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                      <div className="absolute top-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded flex items-center">
+                                          <Star size={8} className="fill-yellow-400 text-yellow-400 mr-1" /> {related.rating}
                                       </div>
                                   </div>
+                                  <h4 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2 group-hover:text-primary transition-colors mb-1">{related.title}</h4>
+                                  <p className="text-xs text-slate-500 line-clamp-1">{related.category}</p>
                               </Link>
                           ))}
                       </div>
