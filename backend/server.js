@@ -5,7 +5,10 @@ const dotenv = require('dotenv');
 const path = require('path');
 
 // Load .env file explicitly
-dotenv.config({ path: path.join(__dirname, '.env') });
+// In Vercel, secrets are env vars, so this is mostly for local dev
+if (process.env.NODE_ENV !== 'production') {
+    dotenv.config({ path: path.join(__dirname, '.env') });
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
