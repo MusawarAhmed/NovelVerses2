@@ -349,11 +349,14 @@ export const Reader: React.FC = () => {
             </p>
             <ScaleButton 
               onClick={handlePurchase}
-              className="bg-primary hover:bg-indigo-700 text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-indigo-500/20"
+              disabled={!settings.enablePayments && !!user}
+              className={`px-8 py-3 rounded-full font-bold shadow-lg shadow-indigo-500/20 ${!settings.enablePayments && !!user ? 'bg-slate-400 cursor-not-allowed opacity-50' : 'bg-primary hover:bg-indigo-700 text-white'}`}
             >
               {!settings.enablePayments && !user 
                   ? "Login to Read" 
-                  : `Unlock for ${effectivePrice} Coins`}
+                  : (!settings.enablePayments && !!user)
+                    ? "Premium Chapter (Payments Disabled)"
+                    : `Unlock for ${effectivePrice} Coins`}
             </ScaleButton>
           </FadeIn>
         ) : (

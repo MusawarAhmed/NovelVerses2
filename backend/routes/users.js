@@ -4,7 +4,39 @@ const User = require('../models/User');
 const Novel = require('../models/Novel');
 const Chapter = require('../models/Chapter');
 const Transaction = require('../models/Transaction');
+const bcrypt = require('bcryptjs');
 const { auth, admin } = require('../middleware/authMiddleware');
+
+// Create User (Admin)
+router.post('/', auth, admin, async (req, res) => {
+    const { username, email, password, role, coins } = req.body;
+    try {
+        let user = await User.findOne({ email });
+        if (user) return res.status(400).json({ msg: 'User already exists' });
+
+        user = new User({ 
+            username, 
+            email, 
+            password, 
+            role: role || 'user',
+            coins: coins || 0
+        });
+
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(password, salt);
+
+        await user.save();
+        
+        // Return user without password
+        const userObj = user.toObject();
+        delete userObj.password;
+        
+        res.json(userObj);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
 
 // Update Profile
 router.put('/profile', auth, async (req, res) => {

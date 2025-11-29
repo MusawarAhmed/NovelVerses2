@@ -6,8 +6,18 @@ const { auth, admin } = require('../middleware/authMiddleware');
 // Get all novels
 router.get('/', async (req, res) => {
     try {
-        const { limit, skip, category, sort, status } = req.query;
+        const { limit, skip, category, sort, status, search } = req.query;
         let query = {};
+        
+        if (search) {
+            const searchRegex = new RegExp(search, 'i');
+            query.$or = [
+                { title: searchRegex },
+                { author: searchRegex },
+                { tags: searchRegex }
+            ];
+        }
+
         if (category && category !== 'all') {
              query.category = { $regex: new RegExp(`^${category}$`, 'i') };
         }

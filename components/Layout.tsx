@@ -3,7 +3,7 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { BookOpen, User, Sun, Moon, LogOut, ShieldCheck, Coins, Search as SearchIcon, Trophy, Compass, PenTool } from 'lucide-react';
 import { AppContext } from '../App';
-import { MockBackendService } from '../services/mockBackend';
+import { NovelService } from '../services/novelService';
 import { Novel } from '../types';
 import { NotificationBell } from './NotificationBell';
 
@@ -38,16 +38,25 @@ export const Layout: React.FC = () => {
 
   // Filter suggestions
   useEffect(() => {
-    if (searchQuery.length > 0) {
-      const allNovels = MockBackendService.getNovels();
-      const filtered = allNovels.filter(n => 
-        n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        n.author.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setSuggestions(filtered.slice(0, 5)); // Limit to 5
-    } else {
-      setSuggestions([]);
-    }
+    const fetchSuggestions = async () => {
+      if (searchQuery.length > 0) {
+        try {
+          const novels = await NovelService.getNovels({ search: searchQuery, limit: 5 });
+          setSuggestions(novels);
+        } catch (e) {
+          console.error("Failed to fetch suggestions", e);
+        }
+      } else {
+        setSuggestions([]);
+      }
+    };
+    
+    // Debounce slightly to avoid too many requests
+    const timeoutId = setTimeout(() => {
+      fetchSuggestions();
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -120,7 +129,7 @@ export const Layout: React.FC = () => {
                         {suggestions.map((novel) => (
                           <li key={novel.id}>
                             <Link 
-                              to={`/novel/${novel.id}`} 
+                              to={`/novel/${novel.slug ? `${novel.slug}_${novel.id}` : novel.id}`} 
                               onClick={() => setShowSearchDropdown(false)}
                               className="flex items-center px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                             >
@@ -242,10 +251,10 @@ export const Layout: React.FC = () => {
                 <span className="font-bold text-xl text-slate-900 dark:text-white">NovelVerse</span>
             </div>
             <div className="flex gap-6 text-sm text-slate-500 dark:text-slate-400">
-                <Link to="/" className="hover:text-primary">About</Link>
-                <Link to="/" className="hover:text-primary">Contact</Link>
-                <Link to="/" className="hover:text-primary">Terms of Service</Link>
-                <Link to="/" className="hover:text-primary">Privacy Policy</Link>
+                <Link to="/about" className="hover:text-primary">About</Link>
+                <Link to="/contact" className="hover:text-primary">Contact</Link>
+                <Link to="/terms" className="hover:text-primary">Terms of Service</Link>
+                <Link to="/privacy" className="hover:text-primary">Privacy Policy</Link>
             </div>
           </div>
           <div className="max-w-7xl mx-auto px-4 text-center text-slate-400 dark:text-slate-600 text-xs mt-8">

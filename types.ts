@@ -80,4 +80,5 @@ export interface SiteSettings {
   enablePayments: boolean;
   showDemoCredentials: boolean;
   showChapterSummary: boolean; // New setting
+  theme?: string;
 }

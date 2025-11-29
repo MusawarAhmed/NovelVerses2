@@ -137,7 +137,7 @@ export const Admin: React.FC = () => {
   
   // User Modal State
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [userModalMode, setUserModalMode] = useState<'view' | 'edit' | null>(null); // null = closed
+  const [userModalMode, setUserModalMode] = useState<'view' | 'edit' | 'create' | null>(null); // null = closed
   const [showPassword, setShowPassword] = useState(false);
 
   const initialNovelState = { 
@@ -462,10 +462,39 @@ export const Admin: React.FC = () => {
 
   const handleSaveUser = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (selectedUser) {
-          await NovelService.updateProfile(selectedUser);
+      if (!selectedUser) return;
+
+      try {
+          if (userModalMode === 'create') {
+              // Create New User
+              await NovelService.createUser({
+                  username: selectedUser.username,
+                  email: selectedUser.email,
+                  password: selectedUser.password,
+                  role: selectedUser.role,
+                  coins: selectedUser.coins
+              });
+              alert("User created successfully!");
+          } else {
+              // Update Existing User
+              await NovelService.updateProfile(selectedUser);
+          }
           setUserModalMode(null);
           refreshData();
+      } catch (e) {
+          alert("Failed to save user. Ensure email is unique.");
+      }
+  };
+
+  const handleThemeChange = async (theme: string) => {
+      const newSettings = { ...siteSettings, theme };
+      setSiteSettings(newSettings);
+      await NovelService.updateSiteSettings(newSettings);
+      if (theme === 'unique') {
+          document.documentElement.classList.add('theme-unique');
+          document.documentElement.classList.add('dark');
+      } else {
+          document.documentElement.classList.remove('theme-unique');
       }
   };
 
@@ -712,6 +741,25 @@ export const Admin: React.FC = () => {
                             <h3 className="text-lg font-bold text-slate-900 dark:text-white">Site & Frontend Settings</h3>
                             <p className="text-sm text-slate-500">Toggle visibility of sections and manage global features.</p>
                         </div>
+                        
+                        <div className="mb-6 bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg border border-slate-100 dark:border-slate-700">
+                            <h4 className="font-bold text-slate-900 dark:text-white mb-3">Global Theme</h4>
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => handleThemeChange('default')}
+                                    className={`px-4 py-2 rounded-lg border transition-all ${!siteSettings.theme || siteSettings.theme === 'default' ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600'}`}
+                                >
+                                    Default Theme
+                                </button>
+                                <button
+                                    onClick={() => handleThemeChange('unique')}
+                                    className={`px-4 py-2 rounded-lg border transition-all ${siteSettings.theme === 'unique' ? 'bg-gradient-to-r from-cyan-500 to-pink-500 text-white border-transparent' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600'}`}
+                                >
+                                    Unique Theme (Holo)
+                                </button>
+                            </div>
+                        </div>
+
                         <div className="space-y-4">
                             {[
                                 { key: 'enablePayments', label: 'Payment System', desc: 'Enable coin payments for premium chapters. If disabled, all chapters are free (Global Override).' },
@@ -746,8 +794,27 @@ export const Admin: React.FC = () => {
             {activeTab === 'users' && (
                 <div className="animate-fade-in">
                 <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
                             <h3 className="font-bold text-lg text-slate-900 dark:text-white">User Management</h3>
+                            <button 
+                                onClick={() => {
+                                    setSelectedUser({
+                                        id: '',
+                                        username: '',
+                                        email: '',
+                                        role: 'user',
+                                        coins: 0,
+                                        bookmarks: [],
+                                        purchasedChapters: [],
+                                        readingHistory: []
+                                    });
+                                    setUserModalMode('create');
+                                    setShowPassword(true);
+                                }}
+                                className="bg-primary hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg flex items-center text-sm transition-colors shadow-lg shadow-indigo-500/20"
+                            >
+                                <Plus size={16} className="mr-2" /> Add User
+                            </button>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
@@ -830,7 +897,7 @@ export const Admin: React.FC = () => {
                         {/* Header */}
                         <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-slate-800">
                             <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                                {userModalMode === 'view' ? 'User Details' : 'Edit User'}
+                                {userModalMode === 'view' ? 'User Details' : userModalMode === 'create' ? 'Create New User' : 'Edit User'}
                             </h2>
                             <button 
                                 onClick={() => setUserModalMode(null)}
@@ -846,7 +913,7 @@ export const Admin: React.FC = () => {
                                 {/* Avatar & Basic Info Header (View Only visually) */}
                                 <div className="flex flex-col items-center mb-6">
                                     <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center text-3xl text-white font-bold shadow-lg shadow-primary/20 mb-3">
-                                        {selectedUser.username[0].toUpperCase()}
+                                        {selectedUser.username ? selectedUser.username[0].toUpperCase() : '?'}
                                     </div>
                                     {userModalMode === 'view' && (
                                         <>
@@ -889,7 +956,7 @@ export const Admin: React.FC = () => {
                                                 type={showPassword ? "text" : "password"}
                                                 disabled={userModalMode === 'view'}
                                                 value={selectedUser.password || ''} 
-                                                placeholder={userModalMode === 'view' ? '********' : 'Leave blank to keep current'}
+                                                placeholder={userModalMode === 'create' ? 'Required' : (userModalMode === 'view' ? '********' : 'Leave blank to keep current')}
                                                 onChange={e => setSelectedUser({...selectedUser, password: e.target.value})}
                                                 className={`w-full p-2 pr-10 rounded border text-sm ${userModalMode === 'view' ? 'bg-transparent border-transparent' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-primary outline-none'}`}
                                             />
@@ -951,12 +1018,12 @@ export const Admin: React.FC = () => {
                                     >
                                         {userModalMode === 'view' ? 'Close' : 'Cancel'}
                                     </button>
-                                    {userModalMode === 'edit' && (
+                                    {(userModalMode === 'edit' || userModalMode === 'create') && (
                                         <button 
                                             type="submit"
                                             className="px-6 py-2 bg-primary text-white text-sm font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20"
                                         >
-                                            Save Changes
+                                            {userModalMode === 'create' ? 'Create User' : 'Save Changes'}
                                         </button>
                                     )}
                                     {userModalMode === 'view' && (

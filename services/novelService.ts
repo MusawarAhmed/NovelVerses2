@@ -33,7 +33,7 @@ export const NovelService = {
     },
 
     // Novels
-    getNovels: async (params?: { limit?: number, skip?: number, category?: string, sort?: string, status?: string }): Promise<Novel[]> => {
+    getNovels: async (params?: { limit?: number, skip?: number, category?: string, sort?: string, status?: string, search?: string }): Promise<Novel[]> => {
         const query = new URLSearchParams(params as any).toString();
         const res = await api.get(`/novels?${query}`);
         return mapId(res.data);
@@ -138,6 +138,11 @@ export const NovelService = {
         return res.data;
     },
 
+    createUser: async (userData: any) => {
+        const res = await api.post('/users', userData);
+        return mapId(res.data);
+    },
+
     getSiteSettings: async (): Promise<any> => {
         try {
             const res = await api.get('/admin/settings');
@@ -153,6 +158,7 @@ export const NovelService = {
                 enablePayments: true,
                 showDemoCredentials: true,
                 showChapterSummary: true,
+                theme: 'default',
             };
         }
     },

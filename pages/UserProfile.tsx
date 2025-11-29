@@ -6,7 +6,7 @@ import { BookOpen, Coins, CreditCard, Clock, ChevronRight, Bookmark, Edit2, Save
 import { FadeIn, ScaleButton } from '../components/Anim';
 
 export const UserProfile: React.FC = () => {
-  const { user, refreshUser } = useContext(AppContext);
+  const { user, refreshUser, siteSettings } = useContext(AppContext);
   
   // Edit Mode State
   const [isEditing, setIsEditing] = useState(false);
@@ -199,12 +199,14 @@ export const UserProfile: React.FC = () => {
                     >
                         <Edit2 size={18} className="mr-2" /> Edit Profile
                     </ScaleButton>
-                    <ScaleButton 
-                        onClick={handleAddCoins}
-                        className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-xl font-bold flex items-center justify-center hover:opacity-90 transition-opacity shadow-lg"
-                    >
-                        <CreditCard size={18} className="mr-2" /> Top Up Wallet
-                    </ScaleButton>
+                    {siteSettings.enablePayments && (
+                        <ScaleButton 
+                            onClick={handleAddCoins}
+                            className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-xl font-bold flex items-center justify-center hover:opacity-90 transition-opacity shadow-lg"
+                        >
+                            <CreditCard size={18} className="mr-2" /> Top Up Wallet
+                        </ScaleButton>
+                    )}
                 </div>
             </div>
         ) : (

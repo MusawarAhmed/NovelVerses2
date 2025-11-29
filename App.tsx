@@ -10,6 +10,7 @@ import { Stories } from './pages/Stories';
 import { Auth } from './pages/Auth';
 import { Admin } from './pages/Admin';
 import { UserProfile } from './pages/UserProfile';
+import { About, Contact, Terms, Privacy } from './pages/StaticPages';
 import { NovelService } from './services/novelService';
 import { User } from './types';
 import { LoadingOverlay } from './components/LoadingOverlay';
@@ -22,6 +23,7 @@ export const AppContext = React.createContext<{
   refreshUser: () => void;
   theme: 'light' | 'dark' | 'sepia';
   setTheme: (t: 'light' | 'dark' | 'sepia') => void;
+  siteSettings: any;
 }>({
   user: null,
   login: () => {},
@@ -29,6 +31,7 @@ export const AppContext = React.createContext<{
   refreshUser: () => {},
   theme: 'light',
   setTheme: () => {},
+  siteSettings: {},
 });
 
 const ScrollToTop = () => {
@@ -42,6 +45,7 @@ const ScrollToTop = () => {
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark' | 'sepia'>('light');
+  const [siteSettings, setSiteSettings] = useState<any>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -56,6 +60,20 @@ export default function App() {
                 localStorage.removeItem('token');
             }
         }
+        
+        try {
+            const settings = await NovelService.getSiteSettings();
+            setSiteSettings(settings);
+            if (settings.theme === 'unique') {
+                document.documentElement.classList.add('theme-unique');
+                setTheme('dark');
+            } else {
+                document.documentElement.classList.remove('theme-unique');
+            }
+        } catch (e) {
+            console.error("Failed to load settings", e);
+        }
+
         setLoading(false);
     };
     initAuth();
@@ -97,7 +115,7 @@ export default function App() {
   if (loading) return <LoadingOverlay />;
 
   return (
-    <AppContext.Provider value={{ user, login, logout, refreshUser, theme, setTheme }}>
+    <AppContext.Provider value={{ user, login, logout, refreshUser, theme, setTheme, siteSettings }}>
       <HashRouter>
         <ScrollToTop />
         <Routes>
@@ -111,6 +129,10 @@ export default function App() {
             <Route path="auth" element={<Auth />} />
             <Route path="profile" element={user ? <UserProfile /> : <Navigate to="/auth" />} />
             <Route path="admin" element={user?.role === 'admin' ? <Admin /> : <Navigate to="/" />} />
+            <Route path="about" element={<About />} />
+            <Route path="contact" element={<Contact />} />
+            <Route path="terms" element={<Terms />} />
+            <Route path="privacy" element={<Privacy />} />
           </Route>
         </Routes>
       </HashRouter>

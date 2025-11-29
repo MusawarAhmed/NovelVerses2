@@ -11,7 +11,8 @@ const SiteSettingSchema = new mongoose.Schema({
         showPromo: { type: Boolean, default: true },
         enablePayments: { type: Boolean, default: true },
         showDemoCredentials: { type: Boolean, default: true },
-        showChapterSummary: { type: Boolean, default: true }
+        showChapterSummary: { type: Boolean, default: true },
+        theme: { type: String, default: 'default' } // 'default' or 'unique'
     }
 });
 
