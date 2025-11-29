@@ -42,8 +42,11 @@ app.get('/', (req, res) => {
     res.send('NovelVerse API is running');
 });
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+// Only listen if not in Vercel (Vercel handles this automatically)
+if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}
 
 module.exports = app;
