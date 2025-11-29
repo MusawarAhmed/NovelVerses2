@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, useRef } from 'react';
+import React, { useEffect, useState, useContext, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { NovelService } from '../services/novelService';
 import { Novel, Chapter, Comment, SiteSettings } from '../types';
@@ -35,6 +35,7 @@ export const Reader: React.FC = () => {
 
   // Comment State
   const [newComment, setNewComment] = useState('');
+  const [activeParagraphId, setActiveParagraphId] = useState<string | null>(null);
   
   // Settings State
   const [settings, setSettings] = useState<SiteSettings>({
@@ -46,6 +47,7 @@ export const Reader: React.FC = () => {
 
   useEffect(() => {
     setActivePanel('none');
+    setActiveParagraphId(null);
   }, [chapter]);
 
   useEffect(() => {
@@ -97,6 +99,7 @@ export const Reader: React.FC = () => {
               setSummary(null);
               setScrollProgress(0); // Reset progress on chapter change
               setNewComment('');
+              setActiveParagraphId(null);
 
               // Save Reading History if user is logged in
               if (currentUser) {
@@ -177,7 +180,7 @@ export const Reader: React.FC = () => {
     if (!newComment.trim() || !chapter) return;
 
     try {
-        const comment = await NovelService.createComment(chapter.id, user.id, user.username, newComment);
+        const comment = await NovelService.createComment(chapter.id, user.id, user.username, newComment, activeParagraphId || undefined);
         setComments([comment, ...comments]);
         setNewComment('');
     } catch (e) {
@@ -193,6 +196,58 @@ export const Reader: React.FC = () => {
       }
   };
 
+  // Parse content into paragraphs for comment functionality
+  const paragraphs = useMemo(() => {
+    if (!chapter || !chapter.content) return [];
+    
+    // Use DOMParser to safely parse HTML string
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(chapter.content, 'text/html');
+    
+    // Select all paragraphs. If content is not wrapped in <p>, we might need to handle that.
+    // For now, we assume standard HTML content from rich text editors usually uses <p>.
+    // If the content is just text without <p>, it might be wrapped in <body> by the parser.
+    let pTags = Array.from(doc.body.querySelectorAll('p'));
+    
+    // If no <p> tags found, but there is content, it might be raw text or other tags.
+    // We can try to wrap top-level nodes or just treat the whole body as one block.
+    if (pTags.length === 0 && doc.body.innerHTML.trim().length > 0) {
+        // If it's just text or other tags, treat as one paragraph
+        return [{ id: '0', content: doc.body.innerHTML }];
+    }
+
+    return pTags.map((p, index) => ({
+        id: index.toString(),
+        content: p.outerHTML // Use outerHTML to keep the <p> tag and its attributes/styles
+    }));
+  }, [chapter]);
+
+  const commentsByParagraph = useMemo(() => {
+      const map: Record<string, number> = {};
+      comments.forEach(c => {
+          if (c.paragraphId) {
+              map[c.paragraphId] = (map[c.paragraphId] || 0) + 1;
+          }
+      });
+      return map;
+  }, [comments]);
+
+  const filteredComments = useMemo(() => {
+      if (!activeParagraphId) return comments.filter(c => !c.paragraphId); // Show general comments if no paragraph selected? Or show all?
+      // If paragraph selected, show only those. If 'general' (null) selected, show general comments.
+      // Actually, usually "Comments" panel shows ALL comments unless filtered.
+      // But if we clicked a paragraph badge, we want ONLY that paragraph's comments.
+      return comments.filter(c => c.paragraphId === activeParagraphId);
+  }, [comments, activeParagraphId]);
+
+  // If activePanel is 'comments' and activeParagraphId is null, show ALL comments?
+  // Or should we have a "General Comments" section?
+  // Let's say: 
+  // - If opened via Dock -> Show All Comments (or General ones)
+  // - If opened via Paragraph Badge -> Show Paragraph Comments
+  
+  const displayComments = activeParagraphId ? filteredComments : comments;
+
   if (!novel || !chapter) return <LoadingOverlay />;
 
   const isSepia = theme === 'sepia';
@@ -207,9 +262,6 @@ export const Reader: React.FC = () => {
       acc[vol].push(ch);
       return acc;
   }, {} as Record<string, Chapter[]>);
-
-  // Settings check for display text
-  // Used from state 'settings'
 
   // Calculate Display Price
   const effectivePrice = (novel.offerPrice && novel.offerPrice > 0) ? novel.offerPrice : chapter.price;
@@ -256,8 +308,12 @@ export const Reader: React.FC = () => {
           <DockButton 
             icon={<MessageSquare size={20}/>} 
             active={activePanel === 'comments'} 
-            onClick={() => setActivePanel(activePanel === 'comments' ? 'none' : 'comments')}
+            onClick={() => {
+                setActivePanel(activePanel === 'comments' ? 'none' : 'comments');
+                setActiveParagraphId(null); // Reset to general comments when opening from dock
+            }}
             tooltip="Comments"
+            badge={comments.length}
           />
           <DockButton 
             icon={<Settings size={20}/>} 
@@ -304,8 +360,28 @@ export const Reader: React.FC = () => {
           <div 
             className={`prose dark:prose-invert max-w-none leading-loose ${fontFamily === 'serif' ? 'font-serif' : 'font-sans'}`}
             style={{ fontSize: `${fontSize}px` }}
-            dangerouslySetInnerHTML={{ __html: chapter.content }}
-          />
+          >
+              {paragraphs.map((p) => (
+                  <div key={p.id} className="relative group mb-4">
+                      <div dangerouslySetInnerHTML={{ __html: p.content }} />
+                      
+                      {/* Paragraph Comment Badge */}
+                      <button 
+                          onClick={() => {
+                              setActiveParagraphId(p.id);
+                              setActivePanel('comments');
+                          }}
+                          className={`absolute -right-12 top-0 transform translate-x-0 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center w-8 h-6 rounded-full text-[10px] font-bold shadow-sm ${
+                              commentsByParagraph[p.id] 
+                              ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 opacity-100' 
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:bg-primary hover:text-white'
+                          }`}
+                      >
+                          {commentsByParagraph[p.id] || <MessageSquare size={12} />}
+                      </button>
+                  </div>
+              ))}
+          </div>
         )}
 
         {/* Footer Section with "Cliffhanger" Hook */}
@@ -375,7 +451,7 @@ export const Reader: React.FC = () => {
                     <div className="flex items-center justify-between p-4 border-b border-black/5 dark:border-white/5">
                         <h2 className="font-bold text-lg">
                             {activePanel === 'toc' && 'Table of Contents'}
-                            {activePanel === 'comments' && `Comments (${comments.length})`}
+                            {activePanel === 'comments' && (activeParagraphId ? `Paragraph Comments` : `Comments (${comments.length})`)}
                             {activePanel === 'settings' && 'Display Settings'}
                         </h2>
                         <button onClick={() => setActivePanel('none')} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors">
@@ -424,37 +500,53 @@ export const Reader: React.FC = () => {
                         {/* Comments Panel */}
                         {activePanel === 'comments' && (
                             <div className="space-y-6">
-                                {comments.map(comment => (
-                                    <div key={comment.id} className="flex gap-3">
-                                        <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold ${comment.avatarColor || 'bg-slate-500'}`}>
-                                            {comment.username[0]}
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex items-baseline justify-between mb-1">
-                                                <span className="text-sm font-bold">{comment.username}</span>
-                                                <span className="text-xs opacity-50">2h ago</span>
-                                            </div>
-                                            <p className="text-sm opacity-80 leading-relaxed">{comment.content}</p>
-                                            <div className="flex items-center mt-2 gap-4">
-                                                <button className="flex items-center text-xs opacity-50 hover:opacity-100 hover:text-primary transition-colors">
-                                                    <ThumbsUp size={12} className="mr-1" /> {comment.likes}
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleReply(comment.username)}
-                                                    className="text-xs opacity-50 hover:opacity-100 hover:text-primary transition-colors"
-                                                >
-                                                    Reply
-                                                </button>
-                                            </div>
-                                        </div>
+                                {activeParagraphId && (
+                                    <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg text-xs italic opacity-70 mb-4 border-l-2 border-primary">
+                                        Viewing comments for paragraph {parseInt(activeParagraphId) + 1}
+                                        <button onClick={() => setActiveParagraphId(null)} className="ml-2 text-primary font-bold hover:underline">
+                                            View All
+                                        </button>
                                     </div>
-                                ))}
+                                )}
+                                
+                                {displayComments.length === 0 ? (
+                                    <div className="text-center py-10 opacity-50">
+                                        <MessageSquare size={32} className="mx-auto mb-2 opacity-50"/>
+                                        <p>No comments yet. Be the first!</p>
+                                    </div>
+                                ) : (
+                                    displayComments.map(comment => (
+                                        <div key={comment.id} className="flex gap-3">
+                                            <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold ${comment.avatarColor || 'bg-slate-500'}`}>
+                                                {comment.username[0]}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex items-baseline justify-between mb-1">
+                                                    <span className="text-sm font-bold">{comment.username}</span>
+                                                    <span className="text-xs opacity-50">2h ago</span>
+                                                </div>
+                                                <p className="text-sm opacity-80 leading-relaxed">{comment.content}</p>
+                                                <div className="flex items-center mt-2 gap-4">
+                                                    <button className="flex items-center text-xs opacity-50 hover:opacity-100 hover:text-primary transition-colors">
+                                                        <ThumbsUp size={12} className="mr-1" /> {comment.likes}
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleReply(comment.username)}
+                                                        className="text-xs opacity-50 hover:opacity-100 hover:text-primary transition-colors"
+                                                    >
+                                                        Reply
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                                 <div className="pt-4 border-t border-black/5 dark:border-white/5">
                                     <textarea 
                                         ref={textareaRef}
                                         value={newComment}
                                         onChange={(e) => setNewComment(e.target.value)}
-                                        placeholder="What are your thoughts?" 
+                                        placeholder={activeParagraphId ? "Comment on this paragraph..." : "What are your thoughts?"}
                                         className="w-full p-3 rounded-xl bg-black/5 dark:bg-white/5 border-transparent focus:ring-2 focus:ring-primary outline-none text-sm resize-none h-24"
                                     ></textarea>
                                     <button 
@@ -513,13 +605,18 @@ export const Reader: React.FC = () => {
   );
 };
 
-const DockButton = ({ icon, active, onClick, tooltip }: any) => (
+const DockButton = ({ icon, active, onClick, tooltip, badge }: any) => (
     <div className="relative group">
         <button 
             onClick={onClick}
-            className={`p-3 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center ${active ? 'bg-primary text-white scale-110' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-primary'}`}
+            className={`p-3 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center relative ${active ? 'bg-primary text-white scale-110' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-primary'}`}
         >
             {icon}
+            {badge > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                    {badge > 99 ? '99+' : badge}
+                </span>
+            )}
         </button>
         {/* Tooltip */}
         <div className="absolute right-full top-1/2 transform -translate-y-1/2 mr-3 px-2 py-1 bg-black/80 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">

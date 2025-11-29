@@ -88,9 +88,9 @@ export const NovelService = {
         const res = await api.get(`/comments/novel/${novelId}`);
         return mapId(res.data);
     },
-    createComment: async (chapterId: string, userId: string, username: string, content: string) => {
+    createComment: async (chapterId: string, userId: string, username: string, content: string, paragraphId?: string) => {
         // Note: userId is taken from token in backend, but we keep signature compatible if needed or just pass payload
-        const res = await api.post('/comments', { chapterId, content, username });
+        const res = await api.post('/comments', { chapterId, content, username, paragraphId });
         return mapId(res.data);
     },
     createReview: async (novelId: string, content: string, rating: number) => {

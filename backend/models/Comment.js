@@ -8,7 +8,8 @@ const commentSchema = new mongoose.Schema({
   content: { type: String, required: true },
   likes: { type: Number, default: 0 },
   rating: { type: Number },
-  avatarColor: { type: String }
+  avatarColor: { type: String },
+  paragraphId: { type: String }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Comment', commentSchema);

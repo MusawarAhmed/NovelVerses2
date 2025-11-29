@@ -29,7 +29,7 @@ router.get('/novel/:novelId', async (req, res) => {
 // Create comment
 router.post('/', auth, async (req, res) => {
     try {
-        const { chapterId, novelId, content, username, avatarColor, rating } = req.body;
+        const { chapterId, novelId, content, username, avatarColor, rating, paragraphId } = req.body;
         
         if (!chapterId && !novelId) {
             return res.status(400).json({ msg: 'Chapter ID or Novel ID is required' });
@@ -42,7 +42,8 @@ router.post('/', auth, async (req, res) => {
             username: username || 'User', // Fallback
             content,
             rating,
-            avatarColor: avatarColor || 'bg-indigo-500'
+            avatarColor: avatarColor || 'bg-indigo-500',
+            paragraphId
         });
         const comment = await newComment.save();
 

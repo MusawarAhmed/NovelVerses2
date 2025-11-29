@@ -67,6 +67,7 @@ export interface Comment {
   rating?: number;
   createdAt: string;
   avatarColor?: string; 
+  paragraphId?: string;
 }
 
 export interface SiteSettings {
