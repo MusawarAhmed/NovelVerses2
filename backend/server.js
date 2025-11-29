@@ -17,15 +17,48 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Database Connection
+// Database Connection (Serverless Optimized)
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/novelverse';
 
-console.log('Attempting to connect to MongoDB...');
-console.log('URI (first 30 chars):', uri.substring(0, 30) + '...');
+let cached = global.mongoose;
 
-mongoose.connect(uri)
-.then(() => console.log('MongoDB Connected Successfully!'))
-.catch(err => console.error('MongoDB connection error:', err));
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
+
+async function connectDB() {
+  if (cached.conn) {
+    return cached.conn;
+  }
+
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands: false,
+    };
+
+    cached.promise = mongoose.connect(uri, opts).then((mongoose) => {
+      console.log('MongoDB Connected Successfully!');
+      return mongoose;
+    });
+  }
+  
+  try {
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
+  }
+
+  return cached.conn;
+}
+
+// Connect immediately (but don't await here to avoid blocking startup)
+connectDB();
+
+// Add a simple test route to verify backend is alive
+app.get('/api/test', (req, res) => {
+    res.json({ status: 'ok', message: 'Backend is running!', time: new Date().toISOString() });
+});
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/novels', require('./routes/novels'));
