@@ -1,9 +1,10 @@
+
 import React, { useEffect, useState, useContext, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { NovelService } from '../services/novelService';
 import { Novel, Chapter, Comment, SiteSettings } from '../types';
 import { AppContext } from '../App';
-import { ArrowLeft, Settings, ChevronLeft, ChevronRight, Lock, Sparkles, List, MessageSquare, X, ThumbsUp, Zap, Send } from 'lucide-react';
+import { ArrowLeft, Settings, ChevronLeft, ChevronRight, Lock, Sparkles, List, MessageSquare, X, ThumbsUp, Zap, Send, Headphones, Play, Pause } from 'lucide-react';
 import { GeminiService } from '../services/geminiService';
 import { FadeIn, ScaleButton, BlurIn } from '../components/Anim';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -39,27 +40,69 @@ export const Reader: React.FC = () => {
   
   // Settings State
   const [settings, setSettings] = useState<SiteSettings>({
-      showHero: true, showWeeklyFeatured: true, showRankings: true, showRising: true, showTags: true, showPromo: true, enablePayments: true, showDemoCredentials: true, showChapterSummary: true
+      showHero: true, showWeeklyFeatured: true, showRankings: true, showRising: true, showTags: true, showPromo: true, enablePayments: true, showDemoCredentials: true, showChapterSummary: true, enableTTS: true
   });
+  const [ambience, setAmbience] = useState<'none' | 'rain' | 'fire' | 'cosmic'>('none');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // TTS State
+  const [ttsActive, setTtsActive] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [speechRate, setSpeechRate] = useState(1);
+  const [currentUtterance, setCurrentUtterance] = useState<SpeechSynthesisUtterance | null>(null);
+  const [ttsProgress, setTtsProgress] = useState(0); // 0 to 100
+
+  // Cleanup TTS on unmount
+  useEffect(() => {
+      return () => {
+          window.speechSynthesis.cancel();
+      };
+  }, []);
 
   const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (ambience !== 'none') {
+        // Visual ambience is handled by the overlay component
+    } else {
+        if (audioRef.current) {
+            audioRef.current.pause();
+        }
+    }
+  }, [ambience]);
 
   useEffect(() => {
     setActivePanel('none');
     setActiveParagraphId(null);
   }, [chapter]);
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    if (!novelId || !chapterId) return;
+    let isMounted = true;
+
+    if (!novelId || !chapterId) {
+        setError("Invalid URL parameters");
+        setLoading(false);
+        return;
+    }
     
     const fetchData = async () => {
+        if (!isMounted) return;
+        setLoading(true);
+        setError(null);
         try {
+            console.log("Fetching data for", novelId, chapterId);
             const n = await NovelService.getNovelById(novelId);
             const c = await NovelService.getChapter(chapterId);
             const allChapters = await NovelService.getChapters(novelId);
             const settings = await NovelService.getSiteSettings();
             const chapterComments = await NovelService.getComments(chapterId);
+
+            if (!isMounted) return;
 
             if (n && c) {
               setNovel(n);
@@ -107,29 +150,61 @@ export const Reader: React.FC = () => {
               }
 
             } else {
-              navigate('/');
+              setError("Novel or Chapter not found");
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            navigate('/');
+            if (isMounted) setError(e.message || "Failed to load chapter");
+        } finally {
+            if (isMounted) setLoading(false);
         }
     };
     fetchData();
     window.scrollTo(0, 0);
+    
+    return () => { isMounted = false; };
   }, [novelId, chapterId, navigate]); 
 
-  // Scroll Listener for Percentage
+  // Scroll Listener for Percentage and XP
   useEffect(() => {
     const handleScroll = () => {
         const scrollTop = window.scrollY;
         const docHeight = document.documentElement.scrollHeight - window.innerHeight;
         const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
         setScrollProgress(Math.min(Math.max(progress, 0), 100));
+
+        // Award XP if > 90% and not already awarded for this chapter
+        // Note: In a real app, we'd track this per chapter in DB or local state to prevent spam
+        // For now, we'll just do a simple check if user is at bottom
+        if (progress > 95 && user && !locked) {
+            // Debounce or check flag
+            // We need a ref to track if we already awarded XP for this session/chapter
+        }
     };
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [user, locked]);
+
+  // Track XP Awarded
+  const xpAwardedRef = useRef(false);
+  useEffect(() => {
+      xpAwardedRef.current = false;
+  }, [chapterId]);
+
+  useEffect(() => {
+      if (scrollProgress > 90 && !xpAwardedRef.current && user && !locked) {
+          xpAwardedRef.current = true;
+          NovelService.awardXP(10)
+            .then(res => {
+              if (res.leveledUp) {
+                  window.alert('Congratulations! You reached ' + res.rank + ' Realm!');
+                  refreshUser();
+              }
+            })
+            .catch(e => console.error("XP Error", e));
+      }
+  }, [scrollProgress, user, locked, refreshUser]);
 
   const handlePurchase = async () => {
     if (!user) return navigate('/auth', { state: { from: location.pathname } });
@@ -152,7 +227,7 @@ export const Reader: React.FC = () => {
     if (!chapter || !chapters.length) return;
     const idx = chapters.findIndex(c => c.id === chapter.id);
     if (idx < chapters.length - 1) {
-      navigate(`/read/${novelId}/${chapters[idx + 1].id}`);
+      navigate('/read/' + novelId + '/' + chapters[idx + 1].id);
     }
   };
 
@@ -160,7 +235,7 @@ export const Reader: React.FC = () => {
     if (!chapter || !chapters.length) return;
     const idx = chapters.findIndex(c => c.id === chapter.id);
     if (idx > 0) {
-      navigate(`/read/${novelId}/${chapters[idx - 1].id}`);
+      navigate('/read/' + novelId + '/' + chapters[idx - 1].id);
     }
   };
 
@@ -189,7 +264,7 @@ export const Reader: React.FC = () => {
   };
 
   const handleReply = (username: string) => {
-      setNewComment(`@${username} `);
+      setNewComment('@' + username + ' ');
       if (textareaRef.current) {
           textareaRef.current.focus();
           textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -247,8 +322,44 @@ export const Reader: React.FC = () => {
   // - If opened via Paragraph Badge -> Show Paragraph Comments
   
   const displayComments = activeParagraphId ? filteredComments : comments;
+  
 
-  if (!novel || !chapter) return <LoadingOverlay />;
+  
+  console.log('Reader Render State:', { loading, error, novel: !!novel, chapter: !!chapter, novelId, chapterId });
+
+  if (loading) return <LoadingOverlay />;
+  
+  if (error) {
+      return (
+          <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center">
+              <h1 className="text-2xl font-bold text-red-500 mb-2">Error Loading Chapter</h1>
+              <p className="text-slate-600 dark:text-slate-400 mb-4">{error}</p>
+              <div className="text-xs text-left bg-gray-100 p-2 rounded mb-4 overflow-auto max-w-md">
+                  <p>NovelId: {novelId}</p>
+                  <p>ChapterId: {chapterId}</p>
+              </div>
+              <button 
+                  onClick={() => navigate('/')}
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-700"
+              >
+                  Return Home
+              </button>
+          </div>
+      );
+  }
+
+  if (!novel || !chapter) {
+      return (
+          <div className="min-h-screen flex flex-col items-center justify-center p-10">
+              <h1 className="text-xl font-bold mb-4">Debug: State Inconsistency</h1>
+              <p>Loading: {String(loading)}</p>
+              <p>Error: {String(error)}</p>
+              <p>Novel: {novel ? 'Present' : 'Missing'}</p>
+              <p>Chapter: {chapter ? 'Present' : 'Missing'}</p>
+              <p>Params: {novelId} / {chapterId}</p>
+          </div>
+      );
+  }
 
   const isSepia = theme === 'sepia';
   const currentChapterIndex = chapters.findIndex(c => c.id === chapter.id);
@@ -266,14 +377,109 @@ export const Reader: React.FC = () => {
   // Calculate Display Price
   const effectivePrice = (novel.offerPrice && novel.offerPrice > 0) ? novel.offerPrice : chapter.price;
 
-  return (
-    <div className={`min-h-screen relative ${isSepia ? 'bg-[#f4ecd8] text-[#5b4636]' : 'bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-300'}`}>
+  // TTS State
+
+
+
+  // TTS Logic
+  const handleToggleTTS = () => {
+      if (ttsActive) {
+          // Stop
+          window.speechSynthesis.cancel();
+          setTtsActive(false);
+          setIsSpeaking(false);
+          setIsPaused(false);
+      } else {
+          // Start
+          setTtsActive(true);
+          startReading();
+      }
+  };
+
+  const startReading = () => {
+      if (!chapter) return;
       
+      // Cancel any existing
+      window.speechSynthesis.cancel();
+
+      // Simple text extraction (stripping HTML)
+      // For better experience, we could split by paragraphs and read one by one
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = chapter.content;
+      const text = tempDiv.textContent || tempDiv.innerText || "";
+      const fullText = chapter.title + '. ' + text;
+
+      const utterance = new SpeechSynthesisUtterance(fullText);
+      utterance.rate = speechRate;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      utterance.onstart = () => {
+          setIsSpeaking(true);
+          setIsPaused(false);
+      };
+
+      utterance.onend = () => {
+          setIsSpeaking(false);
+          setIsPaused(false);
+          setTtsActive(false);
+      };
+
+      utterance.onboundary = (event) => {
+          // Estimate progress based on character index
+          const progress = (event.charIndex / fullText.length) * 100;
+          setTtsProgress(progress);
+      };
+
+      setCurrentUtterance(utterance);
+      window.speechSynthesis.speak(utterance);
+  };
+
+  const togglePlayPause = () => {
+      if (isPaused) {
+          window.speechSynthesis.resume();
+          setIsPaused(false);
+          setIsSpeaking(true);
+      } else {
+          window.speechSynthesis.pause();
+          setIsPaused(true);
+          setIsSpeaking(false);
+      }
+  };
+
+  const changeSpeed = () => {
+      const newRate = speechRate >= 2 ? 0.75 : speechRate + 0.25;
+      setSpeechRate(newRate);
+      
+      // If currently speaking, we need to restart with new rate (browser limitation)
+      // Or just set it for next time. Some browsers support dynamic rate change, some don't.
+      // For reliability, we'll just update state. The user might need to restart or we can try to restart at current position (complex).
+      // Simple approach: show toast "Speed updated for next sentence" or just let it apply on restart.
+      // Better approach for "live" update: cancel and restart from approximate location is hard without paragraph splitting.
+      // Let's just update the state and if they pause/play or restart it applies.
+      if (ttsActive && !isPaused) {
+          window.speechSynthesis.cancel();
+          setTimeout(startReading, 50); // Restart
+      }
+  };
+
+  return (
+    <div className={'min-h-screen relative ' + (isSepia ? 'bg-[#f4ecd8] text-[#5b4636]' : 'bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-300')}>
+      
+      {/* Ambience Overlay */}
+      {ambience !== 'none' && (
+          <div className={'fixed inset-0 pointer-events-none z-0 ' + (
+              ambience === 'rain' ? 'ambience-rain' : 
+              ambience === 'fire' ? 'ambience-fire' : 
+              ambience === 'cosmic' ? 'ambience-cosmic' : ''
+          )} />
+      )}
+
       {/* Top Navigation Bar */}
-      <div className={`fixed top-0 left-0 right-0 h-14 z-40 border-b flex flex-col justify-center transition-colors ${isSepia ? 'bg-[#f4ecd8]/95 border-[#e4dcc8]' : 'bg-white/95 dark:bg-slate-900/95 border-slate-200 dark:border-slate-800'} backdrop-blur-md`}>
+      <div className={'fixed top-0 left-0 right-0 h-14 z-40 border-b flex flex-col justify-center transition-colors ' + (isSepia ? 'bg-[#f4ecd8]/95 border-[#e4dcc8]' : 'bg-white/95 dark:bg-slate-900/95 border-slate-200 dark:border-slate-800') + ' backdrop-blur-md'}>
         <div className="flex items-center justify-between px-4 w-full h-full">
             <div className="flex items-center overflow-hidden">
-                <Link to={`/novel/${novelId}`} className="p-2 mr-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex-shrink-0">
+                <Link to={'/novel/' + novelId} className="p-2 mr-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex-shrink-0">
                     <ArrowLeft size={20} />
                 </Link>
                 <div className="min-w-0 flex flex-col">
@@ -285,6 +491,18 @@ export const Reader: React.FC = () => {
                 <div className="text-sm font-mono font-bold opacity-70 hidden sm:block">
                     {scrollProgress.toFixed(0)}%
                 </div>
+                
+                {/* TTS Toggle */}
+                {!locked && (
+                    <button 
+                        onClick={handleToggleTTS}
+                        className={'p-2 rounded-full transition-colors ' + (ttsActive ? 'bg-primary text-white' : 'hover:bg-black/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-400')}
+                        title="Listen to Chapter"
+                    >
+                        <Headphones size={20} />
+                    </button>
+                )}
+
                 {/* AI Summary - Only show if unlocked AND enabled in settings */}
                 {!locked && settings.showChapterSummary && (
                     <ScaleButton onClick={handleSummarize} className="hidden sm:flex items-center gap-1 text-xs font-medium px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors">
@@ -294,8 +512,42 @@ export const Reader: React.FC = () => {
             </div>
         </div>
         {/* Progress Line */}
-        <div className="absolute bottom-0 left-0 h-[2px] bg-primary transition-all duration-100 ease-out" style={{ width: `${scrollProgress}%` }}></div>
+        <div className="absolute bottom-0 left-0 h-[2px] bg-primary transition-all duration-100 ease-out" style={{ width: scrollProgress + '%' }}></div>
       </div>
+
+      {/* TTS Player Floating Bar */}
+      <AnimatePresence>
+          {ttsActive && (
+              <motion.div 
+                  initial={{ y: 100, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 100, opacity: 0 }}
+                  className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-slate-900/90 dark:bg-white/90 backdrop-blur-md text-white dark:text-slate-900 px-6 py-3 rounded-full shadow-2xl flex items-center gap-6 border border-white/10 dark:border-slate-200"
+              >
+                  <div className="flex flex-col">
+                      <span className="text-[10px] font-bold uppercase opacity-50 tracking-wider">Audiobook Mode</span>
+                      <span className="text-xs font-bold truncate max-w-[150px]">{chapter.title}</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-4">
+                      <button onClick={changeSpeed} className="text-xs font-mono font-bold w-8 hover:text-primary transition-colors">
+                          {speechRate}x
+                      </button>
+                      
+                      <button 
+                          onClick={togglePlayPause}
+                          className="w-10 h-10 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-full flex items-center justify-center hover:scale-105 transition-transform"
+                      >
+                          {isPaused ? <Play size={18} className="ml-1"/> : <Pause size={18} />}
+                      </button>
+                      
+                      <button onClick={handleToggleTTS} className="hover:text-red-400 transition-colors">
+                          <X size={18} />
+                      </button>
+                  </div>
+              </motion.div>
+          )}
+      </AnimatePresence>
 
       {/* Right Floating Dock */}
       <div className="fixed right-4 top-1/2 transform -translate-y-1/2 z-40 flex flex-col gap-3">
@@ -350,19 +602,19 @@ export const Reader: React.FC = () => {
             <ScaleButton 
               onClick={handlePurchase}
               disabled={!settings.enablePayments && !!user}
-              className={`px-8 py-3 rounded-full font-bold shadow-lg shadow-indigo-500/20 ${!settings.enablePayments && !!user ? 'bg-slate-400 cursor-not-allowed opacity-50' : 'bg-primary hover:bg-indigo-700 text-white'}`}
+              className={'px-8 py-3 rounded-full font-bold shadow-lg shadow-indigo-500/20 ' + (!settings.enablePayments && !!user ? 'bg-slate-400 cursor-not-allowed opacity-50' : 'bg-primary hover:bg-indigo-700 text-white')}
             >
               {!settings.enablePayments && !user 
                   ? "Login to Read" 
                   : (!settings.enablePayments && !!user)
                     ? "Premium Chapter (Payments Disabled)"
-                    : `Unlock for ${effectivePrice} Coins`}
+                    : 'Unlock for ' + effectivePrice + ' Coins'}
             </ScaleButton>
           </FadeIn>
         ) : (
           <div 
-            className={`prose dark:prose-invert max-w-none leading-loose ${fontFamily === 'serif' ? 'font-serif' : 'font-sans'}`}
-            style={{ fontSize: `${fontSize}px` }}
+            className={'prose dark:prose-invert max-w-none leading-loose ' + (fontFamily === 'serif' ? 'font-serif' : 'font-sans')}
+            style={{ fontSize: fontSize + 'px' }}
           >
               {paragraphs.map((p) => (
                   <div key={p.id} className="relative group mb-4">
@@ -374,11 +626,11 @@ export const Reader: React.FC = () => {
                               setActiveParagraphId(p.id);
                               setActivePanel('comments');
                           }}
-                          className={`absolute -right-12 top-0 transform translate-x-0 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center w-8 h-6 rounded-full text-[10px] font-bold shadow-sm ${
+                          className={'absolute -right-12 top-0 transform translate-x-0 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center w-8 h-6 rounded-full text-[10px] font-bold shadow-sm ' + (
                               commentsByParagraph[p.id] 
                               ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 opacity-100' 
                               : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:bg-primary hover:text-white'
-                          }`}
+                          )}
                       >
                           {commentsByParagraph[p.id] || <MessageSquare size={12} />}
                       </button>
@@ -417,7 +669,7 @@ export const Reader: React.FC = () => {
                         className="flex flex-col items-start px-4 py-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-30 transition-colors text-left max-w-[45%]"
                     >
                         <span className="text-xs uppercase opacity-50 font-bold flex items-center mb-1"><ChevronLeft size={12} className="mr-1"/> Previous</span>
-                        <span className="text-sm font-medium truncate w-full">{prevChapter ? `Ch. ${prevChapter.order}` : 'First Chapter'}</span>
+                        <span className="text-sm font-medium truncate w-full">{prevChapter ? 'Ch. ' + prevChapter.order : 'First Chapter'}</span>
                     </button>
 
                     <button 
@@ -426,7 +678,7 @@ export const Reader: React.FC = () => {
                         className="flex flex-col items-end px-4 py-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-30 transition-colors text-right max-w-[45%]"
                     >
                         <span className="text-xs uppercase opacity-50 font-bold flex items-center mb-1">Next <ChevronRight size={12} className="ml-1"/></span>
-                        <span className="text-sm font-medium truncate w-full">{nextChapter ? `Ch. ${nextChapter.order}` : 'Latest'}</span>
+                        <span className="text-sm font-medium truncate w-full">{nextChapter ? 'Ch. ' + nextChapter.order : 'Latest'}</span>
                     </button>
                 </div>
             </div>
@@ -448,13 +700,13 @@ export const Reader: React.FC = () => {
                 <motion.div 
                     initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
                     transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    className={`fixed top-0 right-0 bottom-0 w-80 sm:w-96 z-50 shadow-2xl flex flex-col ${isSepia ? 'bg-[#f9f3e6] border-l border-[#e4dcc8]' : 'bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800'}`}
+                    className={'fixed top-0 right-0 bottom-0 w-80 sm:w-96 z-50 shadow-2xl flex flex-col ' + (isSepia ? 'bg-[#f9f3e6] border-l border-[#e4dcc8]' : 'bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800')}
                 >
                     {/* Panel Header */}
                     <div className="flex items-center justify-between p-4 border-b border-black/5 dark:border-white/5">
                         <h2 className="font-bold text-lg">
                             {activePanel === 'toc' && 'Table of Contents'}
-                            {activePanel === 'comments' && (activeParagraphId ? `Paragraph Comments` : `Comments (${comments.length})`)}
+                            {activePanel === 'comments' && (activeParagraphId ? 'Paragraph Comments' : 'Comments (' + comments.length + ')')}
                             {activePanel === 'settings' && 'Display Settings'}
                         </h2>
                         <button onClick={() => setActivePanel('none')} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors">
@@ -484,10 +736,10 @@ export const Reader: React.FC = () => {
                                                     <button
                                                         key={ch.id}
                                                         onClick={() => {
-                                                            navigate(`/read/${novelId}/${ch.id}`);
+                                                            navigate('/read/' + novelId + '/' + ch.id);
                                                             setActivePanel('none');
                                                         }}
-                                                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${ch.id === chapter.id ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
+                                                        className={'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ' + (ch.id === chapter.id ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-black/5 dark:hover:bg-white/5')}
                                                     >
                                                         <span className="truncate">{ch.title}</span>
                                                         {isChLocked && <Lock size={12} className="ml-2 opacity-50 flex-shrink-0" />}
@@ -520,7 +772,7 @@ export const Reader: React.FC = () => {
                                 ) : (
                                     displayComments.map(comment => (
                                         <div key={comment.id} className="flex gap-3">
-                                            <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold ${comment.avatarColor || 'bg-slate-500'}`}>
+                                            <div className={'w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold ' + (comment.avatarColor || 'bg-slate-500')}>
                                                 {comment.username[0]}
                                             </div>
                                             <div className="flex-1">
@@ -584,17 +836,35 @@ export const Reader: React.FC = () => {
                                     <div className="grid grid-cols-2 gap-3">
                                         <button 
                                             onClick={() => setFontFamily('sans')} 
-                                            className={`py-3 px-4 rounded-xl border text-sm transition-all ${fontFamily === 'sans' ? 'border-primary bg-primary/5 text-primary font-bold' : 'border-slate-200 dark:border-slate-700 hover:border-slate-400'}`}
+                                            className={'py-3 px-4 rounded-xl border text-sm transition-all ' + (fontFamily === 'sans' ? 'border-primary bg-primary/5 text-primary font-bold' : 'border-slate-200 dark:border-slate-700 hover:border-slate-400')}
                                         >
                                             Sans Serif
                                         </button>
                                         <button 
                                             onClick={() => setFontFamily('serif')} 
-                                            className={`py-3 px-4 rounded-xl border text-sm font-serif transition-all ${fontFamily === 'serif' ? 'border-primary bg-primary/5 text-primary font-bold' : 'border-slate-200 dark:border-slate-700 hover:border-slate-400'}`}
+                                            className={'py-3 px-4 rounded-xl border text-sm font-serif transition-all ' + (fontFamily === 'serif' ? 'border-primary bg-primary/5 text-primary font-bold' : 'border-slate-200 dark:border-slate-700 hover:border-slate-400')}
                                         >
                                             Serif
                                         </button>
                                     </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold uppercase mb-4 opacity-60">Zen Ambience</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {['none', 'rain', 'fire', 'cosmic'].map((mode) => (
+                                            <button 
+                                                key={mode}
+                                                onClick={() => setAmbience(mode as any)} 
+                                                className={'py-3 px-4 rounded-xl border text-sm capitalize transition-all ' + (ambience === mode ? 'border-primary bg-primary/5 text-primary font-bold' : 'border-slate-200 dark:border-slate-700 hover:border-slate-400')}
+                                            >
+                                                {mode}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] opacity-50 mt-2">
+                                        * Note: Audio requires adding .mp3 files to /public/audio/
+                                    </p>
                                 </div>
                             </div>
                         )}
@@ -612,7 +882,7 @@ const DockButton = ({ icon, active, onClick, tooltip, badge }: any) => (
     <div className="relative group">
         <button 
             onClick={onClick}
-            className={`p-3 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center relative ${active ? 'bg-primary text-white scale-110' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-primary'}`}
+            className={'p-3 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center relative ' + (active ? 'bg-primary text-white scale-110' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-primary')}
         >
             {icon}
             {badge > 0 && (

@@ -193,4 +193,35 @@ router.get('/', auth, admin, async (req, res) => {
     }
 });
 
+// Award XP
+router.post('/xp', auth, async (req, res) => {
+    try {
+        const { amount } = req.body;
+        const xpGain = amount || 10;
+        
+        const user = await User.findById(req.user.id);
+        user.xp = (user.xp || 0) + xpGain;
+
+        // Calculate Rank
+        let newRank = 'Mortal';
+        if (user.xp >= 10000) newRank = 'Immortal';
+        else if (user.xp >= 5000) newRank = 'Nascent Soul';
+        else if (user.xp >= 2000) newRank = 'Golden Core';
+        else if (user.xp >= 500) newRank = 'Foundation Establishment';
+        else if (user.xp >= 100) newRank = 'Qi Condensation';
+
+        let leveledUp = false;
+        if (newRank !== user.cultivationRank) {
+            user.cultivationRank = newRank;
+            leveledUp = true;
+        }
+
+        await user.save();
+        res.json({ xp: user.xp, rank: user.cultivationRank, leveledUp });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 module.exports = router;

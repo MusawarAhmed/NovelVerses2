@@ -15,6 +15,8 @@ export interface User {
   bookmarks: string[]; // Novel IDs
   purchasedChapters: string[]; // Chapter IDs
   readingHistory: ReadingHistoryItem[]; 
+  xp?: number;
+  cultivationRank?: string;
 }
 
 export interface Novel {
@@ -80,5 +82,6 @@ export interface SiteSettings {
   enablePayments: boolean;
   showDemoCredentials: boolean;
   showChapterSummary: boolean; // New setting
+  enableTTS: boolean; // New setting for Text-to-Speech
   theme?: string;
 }

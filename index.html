@@ -88,6 +88,40 @@
       ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
       .dark ::-webkit-scrollbar-thumb { background: #475569; }
       .theme-unique ::-webkit-scrollbar-thumb { background: rgb(var(--color-primary)); }
+
+      /* Zen Mode Ambience Effects */
+      @keyframes rain {
+        0% { background-position: 0% 0%; }
+        100% { background-position: 20% 100%; }
+      }
+
+      .ambience-rain {
+        background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%239C92AC' fill-opacity='0.2' fill-rule='evenodd'%3E%3Ccircle cx='3' cy='3' r='1'/%3E%3Ccircle cx='13' cy='13' r='1'/%3E%3C/g%3E%3C/svg%3E");
+        animation: rain 2s linear infinite;
+        opacity: 0.5;
+        pointer-events: none;
+      }
+
+      @keyframes flicker {
+        0% { opacity: 0.1; }
+        25% { opacity: 0.15; }
+        50% { opacity: 0.1; }
+        75% { opacity: 0.18; }
+        100% { opacity: 0.1; }
+      }
+
+      .ambience-fire {
+        background-color: #ff5500;
+        mix-blend-mode: overlay;
+        animation: flicker 3s infinite alternate;
+        pointer-events: none;
+      }
+
+      .ambience-cosmic {
+        background: radial-gradient(circle at 50% 50%, rgba(76, 29, 149, 0.2), transparent 70%);
+        animation: pulse 4s infinite ease-in-out;
+        pointer-events: none;
+      }
     </style>
   <script type="importmap">
 {

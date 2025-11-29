@@ -200,11 +200,19 @@ export const Layout: React.FC = () => {
                     {/* Dropdown */}
                     {showUserMenu && (
                       <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 transform origin-top-right z-50">
-                        <div className="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 border-b dark:border-slate-700">
-                          Signed in as <br/> <span className="font-bold text-slate-900 dark:text-white">{user.username}</span>
-                          <div className="flex items-center mt-1 text-yellow-600 dark:text-yellow-400 font-bold"><Coins size={12} className="mr-1"/> {user.coins}</div>
-                        </div>
-                        {user.role === 'admin' && (
+                        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{user.username}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user.email}</p>
+                    <div className="mt-2 flex items-center justify-between text-xs">
+                        <span className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded-full font-bold flex items-center">
+                            <Coins size={10} className="mr-1" /> {user.coins}
+                        </span>
+                        <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-full font-bold">
+                            {user.cultivationRank || 'Mortal'}
+                        </span>
+                    </div>
+                  </div>
+                  {user.role === 'admin' && (
                           <Link 
                             to="/admin" 
                             onClick={() => setShowUserMenu(false)}

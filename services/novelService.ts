@@ -158,6 +158,7 @@ export const NovelService = {
                 enablePayments: true,
                 showDemoCredentials: true,
                 showChapterSummary: true,
+                enableTTS: true,
                 theme: 'default',
             };
         }
@@ -221,5 +222,10 @@ export const NovelService = {
     },
 
     // Init (Placeholder for compatibility, does nothing now)
-    init: () => {}
+    init: () => {},
+
+    awardXP: async (amount: number) => {
+        const res = await api.post('/users/xp', { amount });
+        return res.data;
+    }
 };

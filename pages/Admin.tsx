@@ -128,7 +128,7 @@ export const Admin: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({
-      showHero: true, showWeeklyFeatured: true, showRankings: true, showRising: true, showTags: true, showPromo: true, enablePayments: true, showDemoCredentials: true, showChapterSummary: true
+      showHero: true, showWeeklyFeatured: true, showRankings: true, showRising: true, showTags: true, showPromo: true, enablePayments: true, showDemoCredentials: true, showChapterSummary: true, enableTTS: true
   });
   
   // Form States
@@ -771,6 +771,7 @@ export const Admin: React.FC = () => {
                                 { key: 'showPromo', label: 'Promotional Banner', desc: 'Bottom banner linking to auth/benefits pages.' },
                                 { key: 'showDemoCredentials', label: 'Show Demo Credentials', desc: 'Show admin/user credentials on login page.' },
                                 { key: 'showChapterSummary', label: 'Enable AI Chapter Summary', desc: 'Show the AI Summary button in the reader.' },
+                                { key: 'enableTTS', label: 'Enable Text-to-Speech', desc: 'Allow users to listen to chapters using browser TTS.' },
                             ].map((item) => (
                                 <div key={item.key} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-100 dark:border-slate-700">
                                     <div>
@@ -823,6 +824,7 @@ export const Admin: React.FC = () => {
                                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">User</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Email</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Role (Assign)</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Rank</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Coins</th>
                                         <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actions</th>
                                     </tr>
@@ -851,6 +853,11 @@ export const Admin: React.FC = () => {
                                                     <option value="user">User</option>
                                                     <option value="admin">Admin</option>
                                                 </select>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="px-2 py-1 text-xs font-bold rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                                    {u.cultivationRank || 'Mortal'}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
                                                 {u.coins}

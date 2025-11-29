@@ -13,7 +13,9 @@ const userSchema = new mongoose.Schema({
     novelId: { type: String },
     chapterId: { type: String },
     lastReadAt: { type: Date, default: Date.now }
-  }]
+  }],
+  xp: { type: Number, default: 0 },
+  cultivationRank: { type: String, default: 'Mortal' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);
