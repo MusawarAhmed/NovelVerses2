@@ -1,0 +1,5 @@
+{
+  "ignore": ["../api/*", "../vercel.json", "*.test.js", "fixtures/*"],
+  "watch": ["server.js", "routes/", "models/", "middleware/"],
+  "ext": "js,json"
+}

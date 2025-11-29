@@ -1,7 +1,13 @@
 import axios from 'axios';
 
+// Simple and robust API URL selection
+const isProduction = import.meta.env.MODE === 'production';
+const baseURL = isProduction ? '/api' : 'http://localhost:5000/api';
+
+console.log('🔌 API Base URL:', baseURL);
+
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL,
   headers: {
     'Content-Type': 'application/json'
   }

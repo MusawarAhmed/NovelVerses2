@@ -17,43 +17,13 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Database Connection (Serverless Optimized)
+// Database Connection
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/novelverse';
 
-let cached = global.mongoose;
-
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
-}
-
-async function connectDB() {
-  if (cached.conn) {
-    return cached.conn;
-  }
-
-  if (!cached.promise) {
-    const opts = {
-      bufferCommands: false,
-    };
-
-    cached.promise = mongoose.connect(uri, opts).then((mongoose) => {
-      console.log('MongoDB Connected Successfully!');
-      return mongoose;
-    });
-  }
-  
-  try {
-    cached.conn = await cached.promise;
-  } catch (e) {
-    cached.promise = null;
-    throw e;
-  }
-
-  return cached.conn;
-}
-
-// Connect immediately (but don't await here to avoid blocking startup)
-connectDB();
+console.log('Attempting to connect to MongoDB...');
+mongoose.connect(uri)
+.then(() => console.log('MongoDB Connected Successfully!'))
+.catch(err => console.error('MongoDB connection error:', err));
 
 // Add a simple test route to verify backend is alive
 app.get('/api/test', (req, res) => {
@@ -72,10 +42,8 @@ app.get('/', (req, res) => {
     res.send('NovelVerse API is running');
 });
 
-if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-    });
-}
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
 
 module.exports = app;
