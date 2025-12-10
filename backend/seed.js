@@ -127,52 +127,182 @@ const seedDatabase = async () => {
             }
         ];
 
-        const createdNovels = await Novel.insertMany(novels);
-        console.log(`✓ Created ${createdNovels.length} novels`);
-
-        // Create Sample Chapters for first novel
-        const firstNovel = createdNovels[0];
-        const chapters = [
+        // Extended Sample Novels for diverse tags
+        const extraNovels = [
             {
-                novelId: firstNovel._id,
-                title: 'Chapter 1: The Weakest Hunter',
-                content: '<h2>The Weakest Hunter</h2><p>In the year 2025, mysterious gates began appearing around the world, connecting Earth to dungeons filled with monsters. Those who awakened special powers became known as Hunters.</p><p>Among them was Jin-Woo, ranked as the weakest E-rank hunter. Despite the dangers, he continued to enter dungeons to pay for his mother\'s medical bills.</p><p>Little did he know, his life was about to change forever...</p>',
-                order: 1,
-                isPaid: false,
-                price: 0,
-                volume: 'Volume 1'
+                title: 'The Silent Assassin',
+                author: 'NightWalker',
+                description: 'A master assassin seeks redemption in a world ruled by crime syndicates.',
+                coverUrl: 'https://picsum.photos/seed/assassin/300/450',
+                tags: ['Action', 'Thriller', 'Urban'],
+                category: 'Original',
+                status: 'Completed',
+                views: 55000,
+                rating: 4.4
             },
             {
-                novelId: firstNovel._id,
-                title: 'Chapter 2: The Double Dungeon',
-                content: '<h2>The Double Dungeon</h2><p>During a routine D-rank dungeon raid, Jin-Woo and his team discovered a hidden door leading to a second dungeon.</p><p>The statues lining the walls seemed to watch their every move. Ancient inscriptions warned of the rules they must follow to survive.</p><p>But greed and curiosity led them to break the first rule...</p>',
-                order: 2,
-                isPaid: false,
-                price: 0,
-                volume: 'Volume 1'
+                title: 'Love in the Time of Portals',
+                author: 'RoseHeart',
+                description: 'Two lovers separated by dimensions try to find their way back to each other.',
+                coverUrl: 'https://picsum.photos/seed/portal/300/450',
+                tags: ['Romance', 'Sci-Fi', 'Drama'],
+                category: 'Original',
+                status: 'Ongoing',
+                views: 42000,
+                rating: 4.7
             },
             {
-                novelId: firstNovel._id,
-                title: 'Chapter 3: The System Awakens',
-                content: '<h2>The System Awakens</h2><p>On the brink of death, Jin-Woo was offered a choice by a mysterious system: accept and live, or refuse and die.</p><p>With no other option, he accepted. A blue screen appeared before his eyes, displaying his stats and a quest.</p><p>"Quest: Survive. Reward: ???"</p>',
-                order: 3,
-                isPaid: true,
-                price: 5,
-                volume: 'Volume 1'
+                title: 'Dungeon Chef',
+                author: 'GourmetKing',
+                description: 'Cooking the most delicious meals from the most dangerous monsters.',
+                coverUrl: 'https://picsum.photos/seed/chef/300/450',
+                tags: ['Fantasy', 'Slice of Life', 'Comedy'],
+                category: 'Original',
+                status: 'Ongoing',
+                views: 89000,
+                rating: 4.8
             },
             {
-                novelId: firstNovel._id,
-                title: 'Chapter 4: Daily Quest',
-                content: '<h2>Daily Quest</h2><p>Jin-Woo woke up in a hospital, alive against all odds. The system was still there, now showing him a daily quest.</p><p>100 push-ups, 100 sit-ups, 100 squats, and a 10km run. Failure would result in a penalty.</p><p>This was just the beginning of his transformation...</p>',
-                order: 4,
-                isPaid: true,
-                price: 5,
-                volume: 'Volume 1'
+                title: 'The Last Starship',
+                author: 'SpaceAce',
+                description: 'Humanity\'s last hope lies in a derelict ship and its reluctant captain.',
+                coverUrl: 'https://picsum.photos/seed/starship/300/450',
+                tags: ['Sci-Fi', 'Adventure', 'Mecha'],
+                category: 'Original',
+                status: 'Ongoing',
+                views: 33000,
+                rating: 4.2
+            },
+            {
+                title: 'School of Magic and Muscles',
+                author: 'FlexMage',
+                description: 'Who needs spells when you can punch through magical barriers?',
+                coverUrl: 'https://picsum.photos/seed/muscles/300/450',
+                tags: ['Action', 'Comedy', 'Academy', 'Magic'],
+                category: 'Original',
+                status: 'Ongoing',
+                views: 67000,
+                rating: 4.6
+            },
+            {
+                title: 'Ghostly Roommate',
+                author: 'SpookyPen',
+                description: 'My new apartment is great, except for the ghost who keeps critiquing my life choices.',
+                coverUrl: 'https://picsum.photos/seed/ghost/300/450',
+                tags: ['Horror', 'Comedy', 'Supernatural'],
+                category: 'Original',
+                status: 'Completed',
+                views: 28000,
+                rating: 4.3
+            },
+            {
+                title: 'System Reborn',
+                author: 'CodeMaster',
+                description: 'The admin of the world system gets reincarnated as a level 1 slime.',
+                coverUrl: 'https://picsum.photos/seed/slime/300/450',
+                tags: ['System', 'Fantasy', 'Adventure', 'Reincarnation'],
+                category: 'Original',
+                status: 'Ongoing',
+                views: 112000,
+                rating: 4.5
+            },
+            {
+                title: 'Martial God Asura',
+                author: 'Kindhearted Bee',
+                description: 'Typical young master courting death simulator.',
+                coverUrl: 'https://picsum.photos/seed/mga/300/450',
+                tags: ['Eastern', 'Xianxia', 'Action', 'Harem'],
+                category: 'Translation',
+                status: 'Ongoing',
+                views: 250000,
+                rating: 4.1
+            },
+            {
+                title: 'Villainess Reversal',
+                author: 'OtomeFan',
+                description: 'Reincarnated as the villainess, I decided to run a bakery instead of ruining the kingdom.',
+                coverUrl: 'https://picsum.photos/seed/villainess/300/450',
+                tags: ['Romance', 'Fantasy', 'Josei'],
+                category: 'Original',
+                status: 'Ongoing',
+                views: 95000,
+                rating: 4.8
+            },
+            {
+                title: 'Cyberpunk Ronin',
+                author: 'NeonBlade',
+                description: 'A samurai in a neon-soaked future fighting megacorps with a laser katana.',
+                coverUrl: 'https://picsum.photos/seed/cyber/300/450',
+                tags: ['Sci-Fi', 'Action', 'Cyberpunk'],
+                category: 'Original',
+                status: 'Completed',
+                views: 48000,
+                rating: 4.5
+            },
+            {
+                title: 'Infinite Gacha',
+                author: 'LuckSacker',
+                description: 'I can pull unlimited items from a gacha system in the apocalypse.',
+                coverUrl: 'https://picsum.photos/seed/gacha/300/450',
+                tags: ['System', 'Action', 'Adventure'],
+                category: 'Original',
+                status: 'Ongoing',
+                views: 105000,
+                rating: 4.4
+            },
+            {
+                title: 'Vampire\'s Butler',
+                author: 'BloodMoon',
+                description: 'Serving a high-maintenance vampire princess is harder than fighting dragon hunters.',
+                coverUrl: 'https://picsum.photos/seed/vampire/300/450',
+                tags: ['Supernatural', 'Romance', 'Comedy'],
+                category: 'Original',
+                status: 'Ongoing',
+                views: 61000,
+                rating: 4.3
             }
         ];
 
-        await Chapter.insertMany(chapters);
-        console.log(`✓ Created ${chapters.length} chapters for "${firstNovel.title}"`);
+        // Helper to slugify
+        const slugify = (text) => {
+            return text.toString().toLowerCase()
+                .replace(/\s+/g, '-')           // Replace spaces with -
+                .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+                .replace(/\-\-+/g, '-')         // Replace multiple - with single -
+                .replace(/^-+/, '')             // Trim - from start
+                .replace(/-+$/, '');            // Trim - from end
+        };
+
+        const allNovels = [...novels, ...extraNovels].map(n => ({
+            ...n,
+            slug: slugify(n.title)
+        }));
+
+        const createdNovels = await Novel.insertMany(allNovels);
+        console.log(`✓ Created ${createdNovels.length} novels`);
+
+        // Generate Chapters for ALL novels
+        const allChapters = [];
+        
+        for (const novel of createdNovels) {
+            // Generate 3-10 chapters per novel
+            const chapterCount = Math.floor(Math.random() * 8) + 3;
+            
+            for (let i = 1; i <= chapterCount; i++) {
+                allChapters.push({
+                    novelId: novel._id,
+                    title: `Chapter ${i}: The Beginning Part ${i}`,
+                    content: `<h2>Chapter ${i}</h2><p>This is the content for chapter ${i} of <strong>${novel.title}</strong>.</p><p>The story continues with intense action and drama...</p><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>`,
+                    order: i,
+                    isPaid: i > 2, // First 2 chapters free
+                    price: i > 2 ? 5 : 0,
+                    volume: 'Volume 1'
+                });
+            }
+        }
+
+        await Chapter.insertMany(allChapters);
+        console.log(`✓ Created ${allChapters.length} chapters across ${createdNovels.length} novels`);
 
         console.log('\n🎉 Database seeded successfully!');
         console.log('\nDemo Credentials:');

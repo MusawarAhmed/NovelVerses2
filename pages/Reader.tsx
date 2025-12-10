@@ -4,19 +4,23 @@ import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { NovelService } from '../services/novelService';
 import { Novel, Chapter, Comment, SiteSettings } from '../types';
 import { AppContext } from '../App';
-import { ArrowLeft, Settings, ChevronLeft, ChevronRight, Lock, Sparkles, List, MessageSquare, X, ThumbsUp, Zap, Send, Headphones, Play, Pause } from 'lucide-react';
+import { ArrowLeft, Settings, ChevronLeft, ChevronRight, Lock, Sparkles, List, MessageSquare, X, ThumbsUp, Zap, Send, Headphones, Play, Pause, Coins, Trophy } from 'lucide-react';
 import { GeminiService } from '../services/geminiService';
 import { FadeIn, ScaleButton, BlurIn } from '../components/Anim';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoadingOverlay } from '../components/LoadingOverlay';
+import { useToast } from '../components/Toast';
 
 export const Reader: React.FC = () => {
   const { novelId, chapterId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { user, refreshUser, theme } = useContext(AppContext);
+  const toast = useToast();
   
   const [novel, setNovel] = useState<Novel | null>(null);
+
+
   const [chapter, setChapter] = useState<Chapter | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -27,6 +31,8 @@ export const Reader: React.FC = () => {
   
   // UI State
   const [locked, setLocked] = useState(false);
+  const [autoUnlock, setAutoUnlock] = useState(() => localStorage.getItem('autoUnlock') === 'true');
+  const autoUnlockAttempted = useRef(false);
   const [activePanel, setActivePanel] = useState<'none' | 'toc' | 'comments' | 'settings'>('none');
   const [scrollProgress, setScrollProgress] = useState(0);
   
@@ -186,24 +192,75 @@ export const Reader: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [user, locked]);
 
-  // Track XP Awarded
+  // Notification State
+  const [notification, setNotification] = useState<string | null>(null);
+
+  // Track XP Awarded & Read Time
   const xpAwardedRef = useRef(false);
-  useEffect(() => {
-      xpAwardedRef.current = false;
-  }, [chapterId]);
+  const startTimeRef = useRef<number>(Date.now());
+  const minReadTimeRef = useRef<number>(0); // Minimum milliseconds required
 
   useEffect(() => {
-      if (scrollProgress > 90 && !xpAwardedRef.current && user && !locked) {
-          xpAwardedRef.current = true;
-          NovelService.awardXP(10)
-            .then(res => {
-              if (res.leveledUp) {
-                  window.alert('Congratulations! You reached ' + res.rank + ' Realm!');
-                  refreshUser();
-              }
-            })
-            .catch(e => console.error("XP Error", e));
+      xpAwardedRef.current = false;
+      startTimeRef.current = Date.now();
+      
+      if (chapter && chapter.content) {
+          // Calculate Word Count (stripping HTML tags)
+          const text = chapter.content.replace(/<[^>]*>?/gm, '');
+          const wordCount = text.split(/\s+/).length;
+          
+          // Estimate Read Time: Avg speed 250 wpm.
+          // We require user to spend at least 40% of that time.
+          // Example: 1000 words -> 4 mins -> require 1.6 mins (96s)
+          // Minimum floor of 10 seconds for very short chapters.
+          const estimatedMinutes = wordCount / 250;
+          const requiredSeconds = Math.max(10, (estimatedMinutes * 60) * 0.4);
+          
+          minReadTimeRef.current = requiredSeconds * 1000;
+          console.log(`Chapter Length: ${wordCount} words. Min Read Time: ${requiredSeconds.toFixed(1)}s`);
       }
+  }, [chapterId, chapter]);
+
+  useEffect(() => {
+      const checkAndAward = () => {
+          const timeSpent = Date.now() - startTimeRef.current;
+          
+          if (scrollProgress > 90 && !xpAwardedRef.current && user && !locked) {
+              if (timeSpent < minReadTimeRef.current) {
+                  console.log(`Read too fast! Spent: ${(timeSpent/1000).toFixed(1)}s, Required: ${(minReadTimeRef.current/1000).toFixed(1)}s`);
+                  return;
+              }
+
+              xpAwardedRef.current = true;
+              NovelService.awardXP(10)
+                .then(res => {
+                  refreshUser();
+                  let msg = '';
+                  if (res.bonusCoinsEarned > 0) {
+                      msg = `+${res.bonusCoinsEarned} Bonus Coin`;
+                  }
+                  if (res.leveledUp) {
+                      msg = `Level Up! ${res.rank} Realm! ` + msg;
+                  }
+                  
+                  if (msg) {
+                      setNotification(msg);
+                      setTimeout(() => setNotification(null), 3000);
+                  }
+                })
+                .catch(e => console.error("XP Error", e));
+          }
+      };
+
+      // Check on scroll
+      checkAndAward();
+      
+      // Also check periodically in case they sit at the bottom
+      const interval = setInterval(() => {
+          if (scrollProgress > 90) checkAndAward();
+      }, 2000);
+
+      return () => clearInterval(interval);
   }, [scrollProgress, user, locked, refreshUser]);
 
   const handlePurchase = async () => {
@@ -216,10 +273,10 @@ export const Reader: React.FC = () => {
         if (res.success) {
           setLocked(false);
           refreshUser(); // Update global context
-          alert("Chapter purchased successfully!");
+          toast.success("Chapter purchased successfully!");
         }
     } catch (err: any) {
-        alert(err.response?.data?.msg || "Purchase failed");
+        toast.error(err.response?.data?.msg || "Purchase failed");
     }
   };
 
@@ -325,6 +382,27 @@ export const Reader: React.FC = () => {
   
 
   
+  // Calculate Display Price (Safe for top-level hooks)
+  const effectivePrice = (novel && chapter && novel.offerPrice && novel.offerPrice > 0) ? novel.offerPrice : (chapter ? chapter.price : 0);
+
+  // Auto-Unlock Logic
+  useEffect(() => {
+     // Reset auto-unlock attempt on chapter change
+     autoUnlockAttempted.current = false;
+  }, [chapterId]);
+
+  useEffect(() => {
+      if (!novel || !chapter) return;
+      if (locked && autoUnlock && user && !autoUnlockAttempted.current) {
+          const totalBalance = (user.coins || 0) + (user.bonusCoins || 0);
+          if (totalBalance >= effectivePrice) {
+              autoUnlockAttempted.current = true;
+              console.log("Auto-unlocking chapter...");
+              handlePurchase();
+          }
+      }
+  }, [locked, autoUnlock, user, effectivePrice, novel, chapter]);
+
   console.log('Reader Render State:', { loading, error, novel: !!novel, chapter: !!chapter, novelId, chapterId });
 
   if (loading) return <LoadingOverlay />;
@@ -374,8 +452,7 @@ export const Reader: React.FC = () => {
       return acc;
   }, {} as Record<string, Chapter[]>);
 
-  // Calculate Display Price
-  const effectivePrice = (novel.offerPrice && novel.offerPrice > 0) ? novel.offerPrice : chapter.price;
+
 
   // TTS State
 
@@ -547,6 +624,17 @@ export const Reader: React.FC = () => {
                   </div>
               </motion.div>
           )}
+          {notification && (
+              <motion.div 
+                  initial={{ y: 50, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 50, opacity: 0 }}
+                  className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 bg-yellow-400 text-yellow-900 px-6 py-2 rounded-full shadow-lg font-bold text-sm flex items-center gap-2"
+              >
+                  <Sparkles size={16} />
+                  {notification}
+              </motion.div>
+          )}
       </AnimatePresence>
 
       {/* Right Floating Dock */}
@@ -594,22 +682,63 @@ export const Reader: React.FC = () => {
               <Lock size={32} />
             </div>
             <h3 className="text-xl font-bold mb-2">Locked Chapter</h3>
+            
+            {user && settings.enablePayments && (
+                <div className="flex items-center gap-3 mb-6 text-sm">
+                    <span className="flex items-center text-slate-600 dark:text-slate-400">
+                        <Coins size={14} className="mr-1" /> {user.coins}
+                    </span>
+                    {(user.bonusCoins || 0) > 0 && (
+                        <span className="flex items-center text-purple-600 dark:text-purple-400 font-bold">
+                            <Trophy size={14} className="mr-1" /> {user.bonusCoins} Bonus
+                        </span>
+                    )}
+                </div>
+            )}
+
             <p className="text-slate-500 mb-6 max-w-xs mx-auto">
                 {!settings.enablePayments && !user 
                     ? "Please login to read this premium chapter." 
                     : "Support the author and unlock this chapter to continue reading."}
             </p>
-            <ScaleButton 
-              onClick={handlePurchase}
-              disabled={!settings.enablePayments && !!user}
-              className={'px-8 py-3 rounded-full font-bold shadow-lg shadow-indigo-500/20 ' + (!settings.enablePayments && !!user ? 'bg-slate-400 cursor-not-allowed opacity-50' : 'bg-primary hover:bg-indigo-700 text-white')}
-            >
-              {!settings.enablePayments && !user 
-                  ? "Login to Read" 
-                  : (!settings.enablePayments && !!user)
-                    ? "Premium Chapter (Payments Disabled)"
-                    : 'Unlock for ' + effectivePrice + ' Coins'}
-            </ScaleButton>
+            
+            <div className="flex flex-col items-center gap-4">
+                <ScaleButton 
+                  onClick={handlePurchase}
+                  disabled={!settings.enablePayments && !!user}
+                  className={'px-8 py-3 rounded-full font-bold shadow-lg shadow-indigo-500/20 flex items-center ' + (!settings.enablePayments && !!user ? 'bg-slate-400 cursor-not-allowed opacity-50' : 'bg-primary hover:bg-indigo-700 text-white')}
+                >
+                  {!settings.enablePayments && !user 
+                      ? "Login to Read" 
+                      : (!settings.enablePayments && !!user)
+                        ? "Premium Chapter (Payments Disabled)"
+                        : (
+                            <>
+                                {user && (user.bonusCoins || 0) >= effectivePrice ? (
+                                    <span>Unlock with {effectivePrice} Bonus Coins</span>
+                                ) : (
+                                    <span>Unlock for {effectivePrice} Coins</span>
+                                )}
+                            </>
+                        )
+                  }
+                </ScaleButton>
+
+                {user && settings.enablePayments && (
+                    <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer hover:text-primary transition-colors">
+                        <input 
+                            type="checkbox" 
+                            checked={autoUnlock}
+                            onChange={(e) => {
+                                setAutoUnlock(e.target.checked);
+                                localStorage.setItem('autoUnlock', e.target.checked.toString());
+                            }}
+                            className="rounded border-slate-300 text-primary focus:ring-primary"
+                        />
+                        Auto-unlock next chapters
+                    </label>
+                )}
+            </div>
           </FadeIn>
         ) : (
           <div 

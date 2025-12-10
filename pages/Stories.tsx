@@ -4,6 +4,7 @@ import { NovelService } from '../services/novelService';
 import { Novel } from '../types';
 import { Star, ChevronDown, ChevronRight, Filter, BookOpen, Clock, Zap, Trophy, Crown } from 'lucide-react';
 import { FadeIn } from '../components/Anim';
+import { NovelCardSkeleton } from '../components/NovelCardSkeleton';
 
 export const Stories: React.FC = () => {
   const { category } = useParams<{ category: string }>();
@@ -184,9 +185,17 @@ export const Stories: React.FC = () => {
                         })}
                     </div>
 
-                    {loading && (
+                    {loading && novels.length === 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                                <NovelCardSkeleton key={i} />
+                            ))}
+                        </div>
+                    )}
+                    
+                    {loading && novels.length > 0 && (
                         <div className="py-10 text-center">
-                            <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                             <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                         </div>
                     )}
 

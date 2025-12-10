@@ -3,6 +3,33 @@ const router = express.Router();
 const Novel = require('../models/Novel');
 const { auth, admin } = require('../middleware/authMiddleware');
 
+// Get Tag Stats (Usage & Views)
+router.get('/tags/stats', async (req, res) => {
+    try {
+        const novels = await Novel.find({}, 'tags views');
+        const tagStats = {};
+
+        novels.forEach(novel => {
+            if (novel.tags && Array.isArray(novel.tags)) {
+                novel.tags.forEach(tag => {
+                    const normalizedTag = tag.trim();
+                    if (!tagStats[normalizedTag]) {
+                        tagStats[normalizedTag] = { name: normalizedTag, count: 0, views: 0 };
+                    }
+                    tagStats[normalizedTag].count += 1;
+                    tagStats[normalizedTag].views += (novel.views || 0);
+                });
+            }
+        });
+
+        const sortedStats = Object.values(tagStats).sort((a, b) => b.views - a.views);
+        res.json(sortedStats);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // Get all novels
 router.get('/', async (req, res) => {
     try {
@@ -19,7 +46,13 @@ router.get('/', async (req, res) => {
         }
 
         if (category && category !== 'all') {
-             query.category = { $regex: new RegExp(`^${category}$`, 'i') };
+            const reservedCategories = ['original', 'fanfic', 'translation'];
+            if (reservedCategories.includes(category.toLowerCase())) {
+                query.category = { $regex: new RegExp(`^${category}$`, 'i') };
+            } else {
+                // If not a reserved category, treat it as a Tag/Genre
+                query.tags = { $regex: new RegExp(category, 'i') };
+            }
         }
         if (status && status !== 'all') {
             query.status = { $regex: new RegExp(`^${status}$`, 'i') };

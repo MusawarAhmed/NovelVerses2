@@ -94,11 +94,20 @@ router.post('/purchase/:chapterId', auth, async (req, res) => {
              else if (novel.offerPrice) price = novel.offerPrice;
         }
 
-        if (user.coins < price) {
+        const totalBalance = (user.coins || 0) + (user.bonusCoins || 0);
+        if (totalBalance < price) {
             return res.status(400).json({ msg: 'Insufficient coins' });
         }
 
-        user.coins -= price;
+        // Deduct from Bonus Coins first
+        if ((user.bonusCoins || 0) >= price) {
+            user.bonusCoins -= price;
+        } else {
+            const remainder = price - (user.bonusCoins || 0);
+            user.bonusCoins = 0;
+            user.coins -= remainder;
+        }
+        
         user.purchasedChapters.push(chapter.id);
         await user.save();
 
@@ -202,6 +211,12 @@ router.post('/xp', auth, async (req, res) => {
         const user = await User.findById(req.user.id);
         user.xp = (user.xp || 0) + xpGain;
 
+        // Award Bonus Coins (e.g., 1 Bonus Coin per 10 XP)
+        const bonusGain = Math.floor(xpGain / 10);
+        if (bonusGain > 0) {
+            user.bonusCoins = (user.bonusCoins || 0) + bonusGain;
+        }
+
         // Calculate Rank
         let newRank = 'Mortal';
         if (user.xp >= 10000) newRank = 'Immortal';
@@ -217,7 +232,34 @@ router.post('/xp', auth, async (req, res) => {
         }
 
         await user.save();
-        res.json({ xp: user.xp, rank: user.cultivationRank, leveledUp });
+        res.json({ xp: user.xp, rank: user.cultivationRank, leveledUp, bonusCoinsEarned: bonusGain });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// Delete User (Admin)
+router.delete('/:id', auth, admin, async (req, res) => {
+    try {
+        await User.findByIdAndDelete(req.params.id);
+        res.json({ msg: 'User deleted' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// Update User Role (Admin)
+router.put('/:id/role', auth, admin, async (req, res) => {
+    try {
+        const { role } = req.body;
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ msg: 'User not found' });
+        
+        user.role = role;
+        await user.save();
+        res.json(user);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');

@@ -11,6 +11,7 @@ export interface User {
   password?: string; // Added password field
   role: 'user' | 'admin';
   coins: number;
+  bonusCoins?: number;
   avatar?: string;
   bookmarks: string[]; // Novel IDs
   purchasedChapters: string[]; // Chapter IDs
@@ -83,5 +84,48 @@ export interface SiteSettings {
   showDemoCredentials: boolean;
   showChapterSummary: boolean; // New setting
   enableTTS: boolean; // New setting for Text-to-Speech
+  showBookSlider: boolean; // New setting for 3D Book Slider
+  showTopUp: boolean; // New setting for Top Up Wallet Button
   theme?: string;
+  themeSettings?: {
+      primaryColor: string;
+      secondaryColor: string;
+      backgroundColor: string;
+      textColor: string;
+      fontFamily: string;
+      borderRadius: string;
+  };
+  featuredConfig?: {
+    heroNovelId?: string;
+    heroMode?: 'static' | 'slider';
+    heroSliderIds?: string[];
+    heroTitle?: string;
+    weeklyNovelIds?: string[];
+    weeklyTitle?: string;
+    risingNovelIds?: string[];
+    risingTitle?: string;
+    sliderNovelIds?: string[];
+    sliderTitle?: string;
+    rankingConfig?: {
+      powerNovelIds?: string[];
+      collectionNovelIds?: string[];
+      activeNovelIds?: string[];
+      ranksTitle?: string;
+    };
+    tagConfig?: string[];
+    tagsTitle?: string;
+    promoConfig?: {
+      title?: string;
+      content?: string;
+      primaryButtonText?: string;
+      primaryButtonLink?: string;
+      secondaryButtonText?: string;
+      secondaryButtonLink?: string;
+    };
+    homeCategorySection?: {
+        show: boolean;
+        title: string;
+        category: string;
+    };
+  };
 }

@@ -34,13 +34,19 @@ export const NovelService = {
 
     // Novels
     getNovels: async (params?: { limit?: number, skip?: number, category?: string, sort?: string, status?: string, search?: string }): Promise<Novel[]> => {
-        const query = new URLSearchParams(params as any).toString();
+        const cleanParams = Object.fromEntries(
+            Object.entries(params || {}).filter(([_, v]) => v != null)
+        );
+        const query = new URLSearchParams(cleanParams as any).toString();
         const res = await api.get(`/novels?${query}`);
         return mapId(res.data);
     },
     getNovelById: async (id: string): Promise<Novel> => {
         const res = await api.get(`/novels/${id}`);
         return mapId(res.data);
+    },
+    getNovel: async (id: string): Promise<Novel> => {
+        return NovelService.getNovelById(id);
     },
     
     // Chapters
@@ -134,7 +140,9 @@ export const NovelService = {
         return mapId(res.data);
     },
     updateSiteSettings: async (settings: any) => {
+        console.log('[NovelService] Updating Settings Payload:', JSON.stringify(settings.featuredConfig?.homeCategorySection, null, 2));
         const res = await api.put('/admin/settings', settings);
+        console.log('[NovelService] Update Response:', JSON.stringify(res.data.featuredConfig?.homeCategorySection, null, 2));
         return res.data;
     },
 
@@ -142,26 +150,61 @@ export const NovelService = {
         const res = await api.post('/users', userData);
         return mapId(res.data);
     },
+    deleteUser: async (id: string) => {
+        const res = await api.delete(`/users/${id}`);
+        return res.data;
+    },
+    updateUserRole: async (id: string, role: 'admin' | 'user') => {
+        const res = await api.put(`/users/${id}/role`, { role });
+        return mapId(res.data);
+    },
 
     getSiteSettings: async (): Promise<any> => {
+        const defaults = {
+            showHero: true,
+            showWeeklyFeatured: true,
+            showRankings: true,
+            showRising: true,
+            showTags: true,
+            showPromo: true,
+            enablePayments: true,
+            showDemoCredentials: true,
+            showChapterSummary: true,
+            enableTTS: true,
+            showBookSlider: true,
+            theme: 'default',
+            featuredConfig: {
+                homeCategorySection: {
+                    show: true,
+                    title: 'Category Feature',
+                    category: 'Original'
+                }
+            }
+        };
+
         try {
             const res = await api.get('/admin/settings');
-            return res.data;
+            console.log('[NovelService] Raw API Fetch Response:', JSON.stringify(res.data.featuredConfig?.homeCategorySection, null, 2));
+            
+            const merged = { 
+                ...defaults, 
+                ...res.data,
+                featuredConfig: {
+                    ...defaults.featuredConfig,
+                    ...(res.data.featuredConfig || {})
+                }
+             };
+             console.log('[NovelService] Merged Result:', JSON.stringify(merged.featuredConfig?.homeCategorySection, null, 2));
+             return merged;
         } catch (e) {
-            return {
-                showHero: true,
-                showWeeklyFeatured: true,
-                showRankings: true,
-                showRising: true,
-                showTags: true,
-                showPromo: true,
-                enablePayments: true,
-                showDemoCredentials: true,
-                showChapterSummary: true,
-                enableTTS: true,
-                theme: 'default',
-            };
+            console.error('[NovelService] Fetch Error, using defaults', e);
+            return defaults;
         }
+    },
+
+    getTagStats: async (): Promise<{name: string, count: number, views: number}[]> => {
+        const res = await api.get('/novels/tags/stats');
+        return res.data;
     },
 
     // Helpers for Home Page (Client-side filtering for now)
@@ -195,19 +238,6 @@ export const NovelService = {
         return limit ? result.slice(0, limit) : result;
     },
 
-    // Notifications
-    getNotifications: async (limit = 20, skip = 0) => {
-        const res = await api.get(`/notifications?limit=${limit}&skip=${skip}`);
-        return mapId(res.data);
-    },
-    getUnreadCount: async () => {
-        const res = await api.get('/notifications/unread-count');
-        return res.data.count;
-    },
-    markNotificationAsRead: async (id: string) => {
-        const res = await api.put(`/notifications/${id}/read`);
-        return mapId(res.data);
-    },
     markAllNotificationsAsRead: async () => {
         const res = await api.put('/notifications/read-all');
         return res.data;

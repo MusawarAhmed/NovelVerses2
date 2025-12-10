@@ -18,8 +18,18 @@
               'paper-dark': 'rgb(var(--color-paper-dark) / <alpha-value>)',
             },
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
+              sans: ['var(--font-sans)', 'sans-serif'],
               serif: ['Merriweather', 'serif'],
+            },
+            borderRadius: {
+              'none': '0',
+              'sm': 'calc(var(--radius) - 0.25rem)',
+              'DEFAULT': 'var(--radius)',
+              'md': 'var(--radius)',
+              'lg': 'calc(var(--radius) + 0.25rem)',
+              'xl': 'calc(var(--radius) + 0.75rem)',
+              '2xl': 'calc(var(--radius) + 1.25rem)',
+              'full': '9999px',
             },
             animation: {
               'blob': 'blob 7s infinite',
@@ -41,9 +51,9 @@
       window.global = window;
       window.process = { env: { NODE_ENV: 'production' } };
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@300;400;600;700&family=Outfit:wght@300;400;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
-      body { font-family: 'Inter', sans-serif; }
+      body { font-family: var(--font-sans); }
       .font-serif { font-family: 'Merriweather', serif; }
       
       :root {
@@ -52,6 +62,9 @@
         --color-dark: 15 23 42;
         --color-paper: 248 250 252;
         --color-paper-dark: 30 41 59;
+        
+        --radius: 0.5rem;
+        --font-sans: 'Inter';
       }
 
       .theme-unique {

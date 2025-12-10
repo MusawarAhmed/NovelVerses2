@@ -206,8 +206,9 @@ export const Layout: React.FC = () => {
                     <div className="mt-2 flex items-center justify-between text-xs">
                         <span className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded-full font-bold flex items-center">
                             <Coins size={10} className="mr-1" /> {user.coins}
+                            {(user.bonusCoins || 0) > 0 && <span className="ml-1 opacity-75 text-[10px]">+{user.bonusCoins} Bonus</span>}
                         </span>
-                        <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-full font-bold">
+                        <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-full font-bold truncate max-w-[100px]" title={user.cultivationRank || 'Mortal'}>
                             {user.cultivationRank || 'Mortal'}
                         </span>
                     </div>

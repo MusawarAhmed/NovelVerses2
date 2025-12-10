@@ -4,7 +4,113 @@ import { NovelService } from '../services/novelService';
 import { Novel, SiteSettings } from '../types';
 import { TrendingUp, Star, Clock, Zap, Trophy, Crown, Flame, BookOpen, ChevronRight, PenTool, Gift } from 'lucide-react';
 import { FadeIn, BlurIn, StaggerContainer, StaggerItem, ScaleButton, BlobBackground } from '../components/Anim';
+import { LoadingOverlay } from '../components/LoadingOverlay';
 import { SEO } from '../components/SEO';
+import BookCard3D from '../components/BookCard3D';
+
+import BookSlider from '../components/BookSlider';
+
+
+
+const HeroCarousel = ({ novels, title }: { novels: Novel[], title: string }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentIndex((prev) => (prev + 1) % novels.length);
+        }, 6000);
+        return () => clearInterval(timer);
+    }, [novels.length]);
+
+    const getNovelLink = (n: Novel) => n.slug ? `/novel/${n.slug}_${n.id}` : `/novel/${n.id}`;
+
+    if (!novels.length) return null;
+
+    return (
+        <div className="relative bg-slate-900 text-white overflow-hidden group">
+             {/* Background Layers */}
+            <div className="absolute inset-0 z-0 transition-opacity duration-1000 ease-in-out">
+                 {novels.map((novel, idx) => (
+                    <div key={novel.id} className={`absolute inset-0 transition-opacity duration-1000 ${idx === currentIndex ? 'opacity-100' : 'opacity-0'}`}>
+                         <img src={novel.coverUrl} alt="" className="w-full h-full object-cover blur-xl opacity-40 scale-105" />
+                    </div>
+                 ))}
+                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-slate-900/40" />
+            </div>
+
+            <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 h-[500px] md:h-[600px] flex items-center">
+                 <div className="relative w-full h-full">
+                    {novels.map((novel, idx) => (
+                        <div 
+                            key={novel.id} 
+                            className={`absolute inset-0 transition-all duration-700 ease-in-out flex flex-col md:flex-row items-center md:items-start gap-8 px-4 ${idx === currentIndex ? 'opacity-100 translate-x-0 z-10' : 'opacity-0 translate-x-8 -z-10'}`}
+                        >
+                            <div className="flex-shrink-0 w-32 md:w-56 shadow-2xl rounded-lg overflow-hidden border-2 border-white/10 transform md:translate-y-4">
+                                <img src={novel.coverUrl} alt={novel.title} className="w-full h-auto" />
+                            </div>
+                            <div className="flex-1 text-center md:text-left pt-4 md:pt-0">
+                                <span className="inline-block py-1 px-3 rounded-full bg-primary/20 text-primary border border-primary/30 text-xs font-bold mb-4">
+                                    {title.toUpperCase()}
+                                </span>
+                                <h1 className="text-2xl md:text-5xl font-bold mb-4 font-serif tracking-tight line-clamp-2">{novel.title}</h1>
+                                <div className="flex items-center justify-center md:justify-start gap-4 text-sm text-slate-300 mb-6">
+                                    <span className="text-white font-medium">{novel.author}</span>
+                                    <span className="hidden md:inline">•</span>
+                                    <span>{novel.category}</span>
+                                    <span className="hidden md:inline">•</span>
+                                    <span className="flex items-center text-yellow-400"><Star size={14} className="fill-current mr-1"/> {novel.rating}</span>
+                                </div>
+                                <p className="text-slate-300 text-sm md:text-base leading-relaxed max-w-2xl mb-8 line-clamp-3">
+                                    {novel.description}
+                                </p>
+                                <div className="flex gap-4 justify-center md:justify-start">
+                                     <Link to={getNovelLink(novel)}>
+                                        <button className="bg-primary hover:bg-indigo-600 text-white px-8 py-3 rounded-full font-bold transition-all shadow-lg shadow-primary/30">
+                                            Read Now
+                                        </button>
+                                    </Link>
+                                     <Link to={getNovelLink(novel)}>
+                                        <button className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-full font-bold transition-all backdrop-blur-sm">
+                                            Details
+                                        </button>
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Navigation Inputs */}
+            {novels.length > 1 && (
+                <>
+                    <button 
+                        onClick={() => setCurrentIndex(prev => (prev - 1 + novels.length) % novels.length)}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full backdrop-blur-sm transition-opacity opacity-0 group-hover:opacity-100 hidden md:block"
+                    >
+                        <ChevronRight size={24} className="rotate-180" />
+                    </button>
+                    <button 
+                        onClick={() => setCurrentIndex(prev => (prev + 1) % novels.length)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full backdrop-blur-sm transition-opacity opacity-0 group-hover:opacity-100 hidden md:block"
+                    >
+                        <ChevronRight size={24} />
+                    </button>
+                    
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-2">
+                        {novels.map((_, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => setCurrentIndex(idx)}
+                                className={`w-2 h-2 rounded-full transition-all ${idx === currentIndex ? 'bg-primary w-6' : 'bg-white/50 hover:bg-white'}`}
+                            />
+                        ))}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
 
 export const Home: React.FC = () => {
   const [weeklyFeatured, setWeeklyFeatured] = useState<Novel[]>([]);
@@ -12,7 +118,10 @@ export const Home: React.FC = () => {
   const [collectionRanking, setCollectionRanking] = useState<Novel[]>([]);
   const [activeRanking, setActiveRanking] = useState<Novel[]>([]);
   const [risingStars, setRisingStars] = useState<Novel[]>([]);
+  const [bookSliderNovels, setBookSliderNovels] = useState<Novel[]>([]);
+  const [heroSliderNovels, setHeroSliderNovels] = useState<Novel[]>([]);
   const [mainFeature, setMainFeature] = useState<Novel | null>(null);
+  const [categorySectionNovels, setCategorySectionNovels] = useState<Novel[]>([]);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
 
   useEffect(() => {
@@ -21,22 +130,95 @@ export const Home: React.FC = () => {
             // Load settings first to ensure page renders something
             const siteSettings = await NovelService.getSiteSettings();
             setSettings(siteSettings);
+            const config = siteSettings.featuredConfig || {};
 
-            const weekly = await NovelService.getWeeklyFeatured(5);
-            setWeeklyFeatured(weekly);
-            setMainFeature(weekly[0] || null);
+            // Helper to fetch novels by IDs
+            const fetchManualNovels = async (ids: string[]) => {
+                if (!ids || ids.length === 0) return [];
+                const promises = ids.map(id => NovelService.getNovel(id).catch(() => null));
+                const results = await Promise.all(promises);
+                return results.filter(n => n !== null) as Novel[];
+            };
+
+            // 1. Hero Section Logic
+            let heroNovel: Novel | null = null;
+            if (config.heroNovelId) {
+                try {
+                    heroNovel = await NovelService.getNovel(config.heroNovelId);
+                } catch (e) { console.error("Failed to load manual hero", e); }
+            }
             
-            const power = await NovelService.getRankedNovels('Power', 5);
+            // 1b. Hero Slider Logic
+            let heroSlides: Novel[] = [];
+            if (config.heroMode === 'slider' && config.heroSliderIds?.length) {
+                heroSlides = await fetchManualNovels(config.heroSliderIds);
+                setHeroSliderNovels(heroSlides);
+            }
+
+            // 2. Weekly Featured Logic
+            let weekly: Novel[] = [];
+            if (config.weeklyNovelIds && config.weeklyNovelIds.length > 0) {
+                weekly = await fetchManualNovels(config.weeklyNovelIds);
+            }
+            // Fallback for Weekly if manual list empty, or mixed logic (if manual < 5, should we fill? For now strict override)
+            if (weekly.length === 0) {
+               weekly = await NovelService.getWeeklyFeatured(5);
+            }
+            
+            setWeeklyFeatured(weekly);
+            // Default main feature to manual hero OR first weekly
+            setMainFeature(heroNovel || weekly[0] || null);
+            
+            // 3. Slider Logic
+            let sliderNovels: Novel[] = [];
+            if (config.sliderNovelIds && config.sliderNovelIds.length > 0) {
+                 sliderNovels = await fetchManualNovels(config.sliderNovelIds);
+            }
+            if (sliderNovels.length === 0) {
+                sliderNovels = await NovelService.getNovels({ limit: 10 });
+            }
+            setBookSliderNovels(sliderNovels);
+            
+            // Rankings Logic
+            let power: Novel[] = [];
+            if (config.rankingConfig?.powerNovelIds?.length) {
+                power = await fetchManualNovels(config.rankingConfig.powerNovelIds);
+            }
+            if (power.length === 0) power = await NovelService.getRankedNovels('Power', 5);
             setPowerRanking(power);
             
-            const collection = await NovelService.getRankedNovels('Collection', 5);
+            let collection: Novel[] = [];
+            if (config.rankingConfig?.collectionNovelIds?.length) {
+                collection = await fetchManualNovels(config.rankingConfig.collectionNovelIds);
+            }
+            if (collection.length === 0) collection = await NovelService.getRankedNovels('Collection', 5);
             setCollectionRanking(collection);
             
-            const active = await NovelService.getRankedNovels('Active', 5);
+            let active: Novel[] = [];
+            if (config.rankingConfig?.activeNovelIds?.length) {
+                active = await fetchManualNovels(config.rankingConfig.activeNovelIds);
+            }
+            if (active.length === 0) active = await NovelService.getRankedNovels('Active', 5);
             setActiveRanking(active);
             
-            const rising = await NovelService.getRisingStars(4);
+            // 4. Rising Stars Logic
+            let rising: Novel[] = [];
+             if (config.risingNovelIds && config.risingNovelIds.length > 0) {
+                rising = await fetchManualNovels(config.risingNovelIds);
+            }
+            if (rising.length === 0) {
+                rising = await NovelService.getRisingStars(4);
+            }
             setRisingStars(rising);
+
+            // 5. Custom Category Section
+            if (config.homeCategorySection?.show && config.homeCategorySection?.category) {
+                 const catNovels = await NovelService.getNovels({ 
+                     category: config.homeCategorySection.category, 
+                     limit: 8 
+                 });
+                 setCategorySectionNovels(catNovels);
+            }
         } catch (e) {
             console.error("Failed to fetch home data", e);
             // Ensure settings are set if they weren't already
@@ -88,49 +270,63 @@ export const Home: React.FC = () => {
       <SEO title="Home" description="Read the best web novels, fanfics, and original stories online." />
       
       {/* Hero / Weekly Book */}
-      {settings.showHero && mainFeature && (
-        <div className="relative bg-slate-900 text-white overflow-hidden">
-            <div className="absolute inset-0 bg-slate-900/80 z-10"></div>
-            <div className="absolute inset-0 z-0">
-                <img src={mainFeature.coverUrl} alt="" className="w-full h-full object-cover blur-xl opacity-50" />
-            </div>
-            
-            <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
-                <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
-                    <div className="flex-shrink-0 w-40 md:w-56 shadow-2xl rounded-lg overflow-hidden border-2 border-white/10 transform md:translate-y-4">
-                        <img src={mainFeature.coverUrl} alt={mainFeature.title} className="w-full h-auto" />
+      {/* Hero Section */}
+      {settings.showHero && (
+        settings.featuredConfig?.heroMode === 'slider' && heroSliderNovels.length > 0 ? (
+            <HeroCarousel novels={heroSliderNovels} title={settings.featuredConfig?.heroTitle || "Featured"} />
+        ) : (
+            mainFeature && (
+                <div className="relative bg-slate-900 text-white overflow-hidden">
+                    <div className="absolute inset-0 bg-slate-900/80 z-10"></div>
+                    <div className="absolute inset-0 z-0">
+                        <img src={mainFeature.coverUrl} alt="" className="w-full h-full object-cover blur-xl opacity-50" />
                     </div>
-                    <div className="flex-1 text-center md:text-left">
-                        <span className="inline-block py-1 px-3 rounded-full bg-primary/20 text-primary border border-primary/30 text-xs font-bold mb-4">
-                            WEEKLY FEATURED
-                        </span>
-                        <h1 className="text-3xl md:text-5xl font-bold mb-4 font-serif tracking-tight">{mainFeature.title}</h1>
-                        <div className="flex items-center justify-center md:justify-start gap-4 text-sm text-slate-300 mb-6">
-                            <span className="text-white font-medium">{mainFeature.author}</span>
-                            <span>•</span>
-                            <span>{mainFeature.category}</span>
-                            <span>•</span>
-                            <span className="flex items-center text-yellow-400"><Star size={14} className="fill-current mr-1"/> {mainFeature.rating}</span>
-                        </div>
-                        <p className="text-slate-300 text-sm md:text-base leading-relaxed max-w-2xl mb-8 line-clamp-3 md:line-clamp-4">
-                            {mainFeature.description}
-                        </p>
-                        <div className="flex gap-4 justify-center md:justify-start">
-                             <Link to={getNovelLink(mainFeature)}>
-                                <ScaleButton className="bg-primary hover:bg-indigo-600 text-white px-8 py-3 rounded-full font-bold transition-all shadow-lg shadow-primary/30">
-                                    Read Now
-                                </ScaleButton>
-                            </Link>
-                            <Link to={getNovelLink(mainFeature)}>
-                                <ScaleButton className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-full font-bold transition-all backdrop-blur-sm">
-                                    Details
-                                </ScaleButton>
-                            </Link>
+                    
+                    <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
+                        <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
+                            <div className="flex-shrink-0 w-40 md:w-56 shadow-2xl rounded-lg overflow-hidden border-2 border-white/10 transform md:translate-y-4">
+                                <img src={mainFeature.coverUrl} alt={mainFeature.title} className="w-full h-auto" />
+                            </div>
+                            <div className="flex-1 text-center md:text-left">
+                                <span className="inline-block py-1 px-3 rounded-full bg-primary/20 text-primary border border-primary/30 text-xs font-bold mb-4">
+                                    {(settings.featuredConfig?.heroTitle || "WEEKLY FEATURED").toUpperCase()}
+                                </span>
+                                <h1 className="text-3xl md:text-5xl font-bold mb-4 font-serif tracking-tight">{mainFeature.title}</h1>
+                                <div className="flex items-center justify-center md:justify-start gap-4 text-sm text-slate-300 mb-6">
+                                    <span className="text-white font-medium">{mainFeature.author}</span>
+                                    <span>•</span>
+                                    <span>{mainFeature.category}</span>
+                                    <span>•</span>
+                                    <span className="flex items-center text-yellow-400"><Star size={14} className="fill-current mr-1"/> {mainFeature.rating}</span>
+                                </div>
+                                <p className="text-slate-300 text-sm md:text-base leading-relaxed max-w-2xl mb-8 line-clamp-3 md:line-clamp-4">
+                                    {mainFeature.description}
+                                </p>
+                                <div className="flex gap-4 justify-center md:justify-start">
+                                     <Link to={getNovelLink(mainFeature)}>
+                                        <ScaleButton className="bg-primary hover:bg-indigo-600 text-white px-8 py-3 rounded-full font-bold transition-all shadow-lg shadow-primary/30">
+                                            Read Now
+                                        </ScaleButton>
+                                    </Link>
+                                    <Link to={getNovelLink(mainFeature)}>
+                                        <ScaleButton className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-full font-bold transition-all backdrop-blur-sm">
+                                            Details
+                                        </ScaleButton>
+                                    </Link>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
+            )
+        )
+      )}
+
+      {/* 3D Book Slider Section */}
+      {settings.showBookSlider && bookSliderNovels.length > 0 && (
+          <div className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
+              <BookSlider novels={bookSliderNovels} title={settings.featuredConfig?.sliderTitle || "Editor's Choice"} />
+          </div>
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 space-y-16">
@@ -139,7 +335,7 @@ export const Home: React.FC = () => {
         {settings.showWeeklyFeatured && (
             <section>
                 <div className="flex justify-between items-end mb-6">
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Weekly Featured</h2>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{settings.featuredConfig?.weeklyTitle || "Weekly Featured"}</h2>
                     <Link to="/browse/featured" className="text-sm text-slate-500 hover:text-primary flex items-center">View More <ChevronRight size={16}/></Link>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
@@ -159,11 +355,36 @@ export const Home: React.FC = () => {
             </section>
         )}
 
+        {/* Custom Category Section */}
+        {settings.featuredConfig?.homeCategorySection?.show && categorySectionNovels.length > 0 && (
+            <section>
+                <div className="flex justify-between items-end mb-6">
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                        {settings.featuredConfig?.homeCategorySection?.title || "Category Feature"}
+                    </h2>
+                    <Link to={`/search?category=${settings.featuredConfig?.homeCategorySection?.category}`} className="text-sm text-slate-500 hover:text-primary flex items-center">
+                        View More <ChevronRight size={16}/>
+                    </Link>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+                    {categorySectionNovels.map(novel => (
+                        <div key={novel.id} className="flex flex-col items-center">
+                            <BookCard3D novel={novel} />
+                             <Link to={getNovelLink(novel)} className="text-center mt-2 group">
+                                <h3 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-2 group-hover:text-primary transition-colors mb-1 px-2">{novel.title}</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{novel.tags[0]}</p>
+                            </Link>
+                        </div>
+                    ))}
+                </div>
+            </section>
+        )}
+
         {/* Rankings Section */}
         {settings.showRankings && (
             <section>
                 <div className="flex justify-between items-end mb-6">
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Rankings</h2>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{settings.featuredConfig?.rankingConfig?.ranksTitle || "Rankings"}</h2>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <RankingList 
@@ -193,7 +414,7 @@ export const Home: React.FC = () => {
             <section>
                 <div className="flex justify-between items-end mb-6">
                     <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center">
-                        <Flame className="text-orange-500 mr-2" /> Rising Fictions
+                        <Flame className="text-orange-500 mr-2" /> {settings.featuredConfig?.risingTitle || "Rising Fictions"}
                     </h2>
                     <Link to="/browse/rising" className="text-sm text-slate-500 hover:text-primary flex items-center">View More <ChevronRight size={16}/></Link>
                 </div>
@@ -221,9 +442,12 @@ export const Home: React.FC = () => {
         {/* Tags / Discovery */}
         {settings.showTags && (
             <section>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Popular Tags</h2>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">{settings.featuredConfig?.tagsTitle || "Popular Tags"}</h2>
                 <div className="flex flex-wrap gap-3">
-                    {["System", "Cultivation", "Reincarnation", "Romance", "Vampire", "Magic", "Cyberpunk", "Apocalypse", "Slice of Life", "Dungeon", "Overpowered", "Villain", "Comedy", "Horror"].map(tag => (
+                    {(settings.featuredConfig?.tagConfig && settings.featuredConfig.tagConfig.length > 0 
+                        ? settings.featuredConfig.tagConfig 
+                        : ["System", "Cultivation", "Reincarnation", "Romance", "Vampire", "Magic", "Cyberpunk", "Apocalypse", "Slice of Life", "Dungeon", "Overpowered", "Villain", "Comedy", "Horror"]
+                    ).map(tag => (
                         <Link key={tag} to={`/search?q=${tag}`} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm text-slate-600 dark:text-slate-300 hover:border-primary hover:text-primary transition-colors">
                             {tag}
                         </Link>
@@ -236,16 +460,18 @@ export const Home: React.FC = () => {
         {settings.showPromo && (
             <section className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 border border-indigo-100 dark:border-slate-700">
                 <div className="max-w-lg">
-                    <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-4">Meet NovelVerse</h2>
+                    <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                        {settings.featuredConfig?.promoConfig?.title || "Meet NovelVerse"}
+                    </h2>
                     <p className="text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
-                        Join thousands of authors and readers. Create your own world, share your stories, and get supported by a vibrant community.
+                        {settings.featuredConfig?.promoConfig?.content || "Join thousands of authors and readers. Create your own world, share your stories, and get supported by a vibrant community."}
                     </p>
                     <div className="flex flex-wrap gap-4">
-                        <Link to="/auth" className="flex items-center px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg font-bold hover:opacity-90 transition-opacity">
-                            <PenTool size={18} className="mr-2" /> Start Writing
+                        <Link to={settings.featuredConfig?.promoConfig?.primaryButtonLink || "/auth"} className="flex items-center px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg font-bold hover:opacity-90 transition-opacity">
+                            <PenTool size={18} className="mr-2" /> {settings.featuredConfig?.promoConfig?.primaryButtonText || "Start Writing"}
                         </Link>
-                        <Link to="/search" className="flex items-center px-6 py-3 bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-lg font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                            <Gift size={18} className="mr-2" /> Benefits
+                        <Link to={settings.featuredConfig?.promoConfig?.secondaryButtonLink || "/search"} className="flex items-center px-6 py-3 bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-lg font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                            <Gift size={18} className="mr-2" /> {settings.featuredConfig?.promoConfig?.secondaryButtonText || "Benefits"}
                         </Link>
                     </div>
                 </div>

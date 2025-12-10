@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from 'react';
 import { AppContext } from '../App';
 import { NovelService } from '../services/novelService';
 import { Link } from 'react-router-dom';
-import { BookOpen, Coins, CreditCard, Clock, ChevronRight, Bookmark, Edit2, Save, X, RefreshCw, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { BookOpen, Coins, CreditCard, Clock, ChevronRight, Bookmark, Edit2, Save, X, RefreshCw, Check, AlertCircle, Eye, EyeOff, Trophy } from 'lucide-react';
 import { FadeIn, ScaleButton } from '../components/Anim';
 
 export const UserProfile: React.FC = () => {
@@ -175,20 +175,50 @@ export const UserProfile: React.FC = () => {
         
         {!isEditing ? (
             // --- VIEW MODE ---
+            <>
             <div className="flex flex-col md:flex-row items-center justify-between">
-                <div className="flex items-center mb-6 md:mb-0">
-                    <div className="w-24 h-24 bg-gradient-to-br from-primary to-indigo-700 rounded-full flex items-center justify-center text-4xl text-white font-bold mr-8 shadow-xl shadow-indigo-500/30 ring-4 ring-white dark:ring-slate-800">
-                        {user.username[0].toUpperCase()}
+                <div className="flex items-center mb-6 md:mb-0 w-full md:w-auto">
+                    <div className="relative">
+                        <div className="w-24 h-24 bg-gradient-to-br from-primary to-indigo-700 rounded-full flex items-center justify-center text-4xl text-white font-bold mr-8 shadow-xl shadow-indigo-500/30 ring-4 ring-white dark:ring-slate-800">
+                            {user.username[0].toUpperCase()}
+                        </div>
+                        {/* Rank Badge */}
+                        <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full shadow-lg border-2 border-white dark:border-slate-800 mr-8">
+                            {user.cultivationRank || 'Mortal'}
+                        </div>
                     </div>
-                    <div>
+                    
+                    <div className="flex-1">
                         <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-1">{user.username}</h2>
-                        <p className="text-slate-500 dark:text-slate-400 flex items-center text-sm">
+                        <p className="text-slate-500 dark:text-slate-400 flex items-center text-sm mb-3">
                             {user.email}
                             <span className="mx-2">•</span>
                             <span className="capitalize px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-md text-xs font-bold">{user.role}</span>
                         </p>
-                        <div className="mt-4 inline-flex items-center px-4 py-2 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-sm font-bold">
-                            <Coins size={18} className="mr-2" /> {user.coins} Coins
+                        
+                        {/* XP Progress Bar */}
+                        <div className="mb-4 max-w-xs">
+                            <div className="flex justify-between text-xs font-bold mb-1 text-slate-500">
+                                <span>XP: {user.xp || 0}</span>
+                                <span>Next Rank: 100</span> {/* Simplified logic for demo */}
+                            </div>
+                            <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-blue-400 to-purple-500" 
+                                    style={{ width: `${Math.min(((user.xp || 0) % 100) / 100 * 100, 100)}%` }} // Simplified progress logic
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <div className="inline-flex items-center px-4 py-2 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-sm font-bold">
+                                <Coins size={18} className="mr-2" /> {user.coins} Coins
+                            </div>
+                            {(user.bonusCoins || 0) > 0 && (
+                                <div className="inline-flex items-center px-4 py-2 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-900/30 text-purple-700 dark:text-purple-400 text-sm font-bold">
+                                    <Trophy size={18} className="mr-2" /> {user.bonusCoins} Bonus
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -199,7 +229,7 @@ export const UserProfile: React.FC = () => {
                     >
                         <Edit2 size={18} className="mr-2" /> Edit Profile
                     </ScaleButton>
-                    {siteSettings.enablePayments && (
+                    {siteSettings.showTopUp && (
                         <ScaleButton 
                             onClick={handleAddCoins}
                             className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-xl font-bold flex items-center justify-center hover:opacity-90 transition-opacity shadow-lg"
@@ -209,6 +239,69 @@ export const UserProfile: React.FC = () => {
                     )}
                 </div>
             </div>
+            
+            {/* Reading Activity Graph (Real Data) */}
+            <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-700">
+                <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Reading Activity (Last 7 Days)</h4>
+                <div className="flex items-end justify-between h-24 gap-2">
+                    {(() => {
+                        // Calculate Activity
+                        const days = 7;
+                        const activity = new Array(days).fill(0);
+                        const labels = new Array(days).fill('');
+                        const today = new Date();
+                        
+                        // Generate Labels (Last 7 days)
+                        for (let i = 0; i < days; i++) {
+                            const d = new Date();
+                            d.setDate(today.getDate() - (days - 1 - i));
+                            labels[i] = d.toLocaleDateString('en-US', { weekday: 'short' });
+                        }
+
+                        // Count History
+                        if (user.readingHistory) {
+                            user.readingHistory.forEach(item => {
+                                const date = new Date(item.lastReadAt);
+                                const diffTime = Math.abs(today.getTime() - date.getTime());
+                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                                
+                                // If within last 7 days (approx logic)
+                                // Better: Check exact date match
+                                for (let i = 0; i < days; i++) {
+                                    const d = new Date();
+                                    d.setDate(today.getDate() - (days - 1 - i));
+                                    if (date.getDate() === d.getDate() && date.getMonth() === d.getMonth()) {
+                                        activity[i]++;
+                                    }
+                                }
+                            });
+                        }
+
+                        const max = Math.max(...activity, 1); // Avoid div by zero
+
+                        return activity.map((count, i) => (
+                            <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
+                                {/* Tooltip */}
+                                <div className="absolute -top-8 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-xs px-2 py-1 rounded pointer-events-none whitespace-nowrap z-10">
+                                    {count} Chapters
+                                </div>
+                                
+                                <div 
+                                    className="w-full bg-slate-100 dark:bg-slate-700 rounded-t-sm relative overflow-hidden group-hover:bg-primary/20 transition-colors"
+                                    style={{ height: `${Math.max((count / max) * 100, 10)}%` }} // Min 10% height for visibility
+                                >
+                                    <div className={`absolute bottom-0 left-0 w-full bg-primary opacity-50 h-full transform translate-y-full transition-transform duration-500 ${count > 0 ? 'group-hover:translate-y-0' : ''}`} />
+                                    {count > 0 && <div className="absolute bottom-0 left-0 w-full h-1 bg-primary/50"></div>}
+                                </div>
+                                <span className={`text-[10px] font-mono ${i === days - 1 ? 'text-primary font-bold' : 'text-slate-400'}`}>
+                                    {labels[i]}
+                                </span>
+                            </div>
+                        ));
+                    })()}
+                </div>
+            </div>
+            </>
         ) : (
             // --- EDIT MODE ---
             <FadeIn>
