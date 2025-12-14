@@ -16,6 +16,8 @@ const userSchema = new mongoose.Schema({
     lastReadAt: { type: Date, default: Date.now }
   }],
   xp: { type: Number, default: 0 },
+  totalXP: { type: Number, default: 0 }, // Verified Lifetime XP for Ranks
+  lastXpGain: { type: Date },
   cultivationRank: { type: String, default: 'Mortal' }
 }, { timestamps: true });
 

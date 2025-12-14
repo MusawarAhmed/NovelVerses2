@@ -13,8 +13,12 @@ const checkUsers = async () => {
         const count = await User.countDocuments();
         console.log(`Found ${count} users.`);
         
-        const users = await User.find().limit(5);
-        users.forEach(u => console.log(`- ${u.username} (${u.email}) [${u.role}]`));
+        const users = await User.find();
+        users.forEach(u => {
+            console.log(`- ${u.username} (${u.email})`);
+            console.log(`  Avatar length: ${u.avatar ? u.avatar.length : 0}`);
+            console.log(`  History count: ${u.readingHistory ? u.readingHistory.length : 0}`);
+        });
 
         process.exit(0);
     } catch (err) {

@@ -6,7 +6,8 @@ import { Novel, Transaction, User, Chapter, SiteSettings } from '../types';
 import { 
   Plus, Sparkles, Book, FileText, DollarSign, BarChart2, Users, 
   Activity, Trash2, Shield, User as UserIcon, Edit, X, Save, 
-  RefreshCw, Bold, Italic, Underline, List, Code, Type, Strikethrough, Eye, Layers, LayoutTemplate, CreditCard, EyeOff, Bell, Send, Star, Volume2, Tag, Key, Search, Palette
+  RefreshCw, Bold, Italic, Underline, List, Code, Type, Strikethrough, Eye, Layers, LayoutTemplate, CreditCard, EyeOff, Bell, Send, Star, Volume2, Tag, Key, Search, Palette, Loader2, Coins, Upload, Trophy,
+  ChevronLeft, ChevronRight, Menu
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -124,6 +125,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange }) => {
 export const Admin: React.FC = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<'analytics' | 'novels' | 'chapters' | 'users' | 'frontend' | 'layout'>('analytics');
+  const [loading, setLoading] = useState(true);
+  const [isSavingRanks, setIsSavingRanks] = useState(false);
   const [novels, setNovels] = useState<Novel[]>([]);
   const [stats, setStats] = useState({ 
     totalNovels: 0, 
@@ -144,6 +147,7 @@ export const Admin: React.FC = () => {
   // Form States
   const [isCreatingNovel, setIsCreatingNovel] = useState(false);
   const [editingNovelId, setEditingNovelId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   
   // User Modal State
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -195,6 +199,26 @@ export const Admin: React.FC = () => {
 
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [chapterList, setChapterList] = useState<Chapter[]>([]);
+  
+  // Sidebar State
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Responsive Sidebar: Auto-collapse on mobile
+  useEffect(() => {
+      const handleResize = () => {
+          if (window.innerWidth < 768) {
+              setIsSidebarCollapsed(true);
+          } else {
+              setIsSidebarCollapsed(false);
+          }
+      };
+
+      // Set initial
+      handleResize();
+
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     refreshData();
@@ -292,6 +316,7 @@ export const Admin: React.FC = () => {
     e.preventDefault();
     
     try {
+        setSaving(true);
         if (editingNovelId) {
             // Update existing
             const existing = novels.find(n => n.id === editingNovelId);
@@ -334,6 +359,8 @@ export const Admin: React.FC = () => {
         refreshData();
     } catch (e) {
         alert("Failed to save novel");
+    } finally {
+        setSaving(false);
     }
   };
 
@@ -377,6 +404,7 @@ export const Admin: React.FC = () => {
     if (!selectedNovelId) return;
     
     try {
+        setSaving(true);
         if (editingChapterId) {
             // Update Existing Chapter
             const existingChapter = chapterList.find(c => c.id === editingChapterId);
@@ -419,6 +447,8 @@ export const Admin: React.FC = () => {
         refreshData();
     } catch (e) {
         alert("Failed to save chapter");
+    } finally {
+        setSaving(false);
     }
   };
 
@@ -489,6 +519,7 @@ export const Admin: React.FC = () => {
       if (!selectedUser) return;
 
       try {
+          setSaving(true);
           if (userModalMode === 'create') {
               // Create New User
               await NovelService.createUser({
@@ -507,6 +538,8 @@ export const Admin: React.FC = () => {
           refreshData();
       } catch (e) {
           alert("Failed to save user. Ensure email is unique.");
+      } finally {
+          setSaving(false);
       }
   };
 
@@ -556,6 +589,12 @@ export const Admin: React.FC = () => {
 
   const toggleSetting = async (key: keyof SiteSettings) => {
       const newSettings = { ...siteSettings, [key]: !siteSettings[key] };
+      setSiteSettings(newSettings);
+      await NovelService.updateSiteSettings(newSettings);
+  };
+
+  const handleUpdateSetting = async (key: keyof SiteSettings, value: any) => {
+      const newSettings = { ...siteSettings, [key]: value };
       setSiteSettings(newSettings);
       await NovelService.updateSiteSettings(newSettings);
   };
@@ -668,33 +707,47 @@ export const Admin: React.FC = () => {
 
   const totalPages = Math.ceil(sortedNovels.length / rowsPerPage);
 
-  const SidebarItem = ({ id, label, icon: Icon }: any) => (
-      <button 
-        onClick={() => setActiveTab(id)} 
-        className={`w-full flex items-center px-4 py-3 text-sm font-medium transition-colors rounded-lg mb-1 ${activeTab === id ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'}`}
-      >
-          <Icon size={18} className="mr-3" />
-          {label}
-      </button>
-  );
+  // Moved SidebarItem outside to prevent re-renders
+  const sidebarItems = [
+      { id: 'analytics', label: 'Dashboard', icon: BarChart2 },
+      { id: 'novels', label: 'Novels', icon: Book },
+      { id: 'chapters', label: 'Chapters', icon: FileText },
+      { id: 'users', label: 'Users & Roles', icon: Users },
+      { id: 'notifications', label: 'Notifications', icon: Bell },
+      { id: 'frontend', label: 'Site Settings', icon: LayoutTemplate },
+      { id: 'layout', label: 'Layout Manager', icon: Layers },
+      { id: 'theme', label: 'Theme Settings', icon: Palette },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row">
       
       {/* Sidebar */}
-      <div className="w-full md:w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-4 md:min-h-screen">
-          <div className="mb-8 px-4 py-2">
-              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Admin Console</h2>
+      <div className={`${isSidebarCollapsed ? 'w-20' : 'w-full md:w-64'} bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-4 md:min-h-screen transition-all duration-300 flex-shrink-0`}>
+          <div className={`mb-8 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between px-2'} py-2`}>
+              {!isSidebarCollapsed && (
+                  <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap animate-fade-in">Admin Console</h2>
+              )}
+              <button
+                  onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                  title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+              >
+                  {isSidebarCollapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
+              </button>
           </div>
-          <nav>
-              <SidebarItem id="analytics" label="Dashboard" icon={BarChart2} />
-              <SidebarItem id="novels" label="Novels" icon={Book} />
-              <SidebarItem id="chapters" label="Chapters" icon={FileText} />
-              <SidebarItem id="users" label="Users & Roles" icon={Users} />
-              <SidebarItem id="notifications" label="Notifications" icon={Bell} />
-              <SidebarItem id="frontend" label="Site Settings" icon={LayoutTemplate} />
-              <SidebarItem id="layout" label="Layout Manager" icon={Layers} />
-              <SidebarItem id="theme" label="Theme Settings" icon={Palette} />
+          <nav className="space-y-1">
+              {sidebarItems.map((item) => (
+                  <button 
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id as any)} 
+                    className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 text-sm font-medium transition-all rounded-lg mb-1 ${activeTab === item.id ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                    title={isSidebarCollapsed ? item.label : ''}
+                  >
+                      <item.icon size={18} className={`${isSidebarCollapsed ? 'mr-0' : 'mr-3'} transition-all`} />
+                      {!isSidebarCollapsed && <span className="animate-fade-in whitespace-nowrap">{item.label}</span>}
+                  </button>
+              ))}
           </nav>
       </div>
 
@@ -1104,9 +1157,24 @@ export const Admin: React.FC = () => {
                                                 </select>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="px-2 py-1 text-xs font-bold rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
-                                                    {u.cultivationRank || 'Mortal'}
-                                                </span>
+                                                {(() => {
+                                                    const rankData = siteSettings.rankConfig?.find(r => r.label === u.cultivationRank);
+                                                    if (rankData?.image) {
+                                                        return (
+                                                            <div className="flex items-center gap-2 group relative">
+                                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-700 border-2 ${rankData.ringColor?.replace('shadow-gold', '') || 'border-slate-300'}`}>
+                                                                    <img src={rankData.image} alt={u.cultivationRank} className="w-full h-full object-contain p-1" />
+                                                                </div>
+                                                                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{u.cultivationRank}</span>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <span className="px-2 py-1 text-xs font-bold rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                                            {u.cultivationRank || 'Mortal'}
+                                                        </span>
+                                                    );
+                                                })()}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
                                                 {u.coins}
@@ -1277,9 +1345,14 @@ export const Admin: React.FC = () => {
                                     {(userModalMode === 'edit' || userModalMode === 'create') && (
                                         <button 
                                             type="submit"
-                                            className="px-6 py-2 bg-primary text-white text-sm font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20"
+                                            disabled={saving}
+                                            className={`px-6 py-2 bg-primary text-white text-sm font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20 flex items-center gap-2 ${saving ? 'opacity-70 cursor-not-allowed' : ''}`}
                                         >
-                                            {userModalMode === 'create' ? 'Create User' : 'Save Changes'}
+                                            {saving ? (
+                                                <><Loader2 size={16} className="animate-spin" /> Saving...</>
+                                            ) : (
+                                                userModalMode === 'create' ? 'Create User' : 'Save Changes'
+                                            )}
                                         </button>
                                     )}
                                     {userModalMode === 'view' && (
@@ -1424,8 +1497,9 @@ export const Admin: React.FC = () => {
                             </div>
                             <div className="flex justify-end gap-2 pt-2">
                                 <button type="button" onClick={handleDiscardNovel} className="px-4 py-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">Discard</button>
-                                <button type="submit" className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center">
-                                    <Save size={18} className="mr-2" /> {editingNovelId ? 'Update Novel' : 'Create Novel'}
+                                <button type="submit" disabled={saving} className={`px-6 py-2 bg-primary text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center ${saving ? 'opacity-70 cursor-not-allowed' : ''}`}>
+                                    {saving ? <Loader2 size={18} className="mr-2 animate-spin" /> : <Save size={18} className="mr-2" />} 
+                                    {saving ? 'Saving...' : (editingNovelId ? 'Update Novel' : 'Create Novel')}
                                 </button>
                             </div>
                         </form>
@@ -1564,8 +1638,12 @@ export const Admin: React.FC = () => {
                                 onChange={(html) => setNewChapter({...newChapter, content: html})} 
                                 />
                             </div>
-                            <button type="submit" className="w-full py-3.5 bg-primary text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20">
-                                {editingChapterId ? 'Update Chapter' : 'Publish Chapter'}
+                            <button type="submit" disabled={saving} className={`w-full py-3.5 bg-primary text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20 flex justify-center items-center gap-2 ${saving ? 'opacity-70 cursor-not-allowed' : ''}`}>
+                                {saving ? (
+                                    <><Loader2 size={20} className="animate-spin" /> Saving Chapter...</>
+                                ) : (
+                                    editingChapterId ? 'Update Chapter' : 'Publish Chapter'
+                                )}
                             </button>
                         </form>
                     </div>
@@ -1693,6 +1771,28 @@ export const Admin: React.FC = () => {
 
                                     <div className="flex items-center justify-between p-5 bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-slate-100 dark:border-slate-700">
                                         <div className="flex items-start">
+                                            <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg mr-4 text-yellow-600 dark:text-yellow-400">
+                                                <Coins size={20} />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-slate-900 dark:text-white mb-1">XP Conversion Rate</h4>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400">XP required for 1 Coin.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="number" 
+                                                min="1"
+                                                value={siteSettings.xpConversionRate || 100} 
+                                                onChange={e => setSiteSettings({...siteSettings, xpConversionRate: parseInt(e.target.value) || 100})} 
+                                                onBlur={() => handleUpdateSetting('xpConversionRate', siteSettings.xpConversionRate || 100)}
+                                                className="w-20 p-2 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-right font-mono"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between p-5 bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-slate-100 dark:border-slate-700">
+                                        <div className="flex items-start">
                                             <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg mr-4 text-purple-600 dark:text-purple-400">
                                                 <DollarSign size={20} />
                                             </div>
@@ -1750,9 +1850,138 @@ export const Admin: React.FC = () => {
                                                 onChange={() => toggleSetting('enableTTS')}
                                                 className="sr-only peer"
                                             />
-                                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                                         </label>
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Rank Badge Configuration */}
+                            <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-700">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h4 className="flex items-center text-sm font-bold text-slate-400 uppercase tracking-wider">
+                                        <Trophy size={16} className="mr-2" /> Rank Badges & Frames
+                                    </h4>
+                                    <button
+                                        onClick={async () => {
+                                            setIsSavingRanks(true);
+                                            try {
+                                                const configToSave = siteSettings.rankConfig && siteSettings.rankConfig.length > 0 
+                                                    ? siteSettings.rankConfig 
+                                                    : [
+                                                        { label: 'Mortal', image: '/badges/mortal.png', ringColor: 'ring-stone-400' },
+                                                        { label: 'Body Tempering', image: '/badges/body_tempering.png', ringColor: 'ring-orange-700' },
+                                                        { label: 'Qi Condensation', image: '/badges/qi_condensation.png', ringColor: 'ring-blue-400' },
+                                                        { label: 'Foundation', image: '/badges/foundation.png', ringColor: 'ring-yellow-400' },
+                                                        { label: 'Golden Core', image: '/badges/golden_core.png', ringColor: 'ring-yellow-500 shadow-gold' }
+                                                      ];
+                                                
+                                                await handleUpdateSetting('rankConfig', configToSave);
+                                                // Refresh local state to ensure it shows immediately
+                                                setSiteSettings(prev => ({ ...prev, rankConfig: configToSave }));
+                                                
+                                                // Show success toast manually since alert() is unreliable
+                                                const toast = document.createElement('div');
+                                                toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-xl z-50 animate-bounce transition-all duration-300 flex items-center gap-2';
+                                                toast.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> Ranks Saved Successfully!';
+                                                document.body.appendChild(toast);
+                                                setTimeout(() => {
+                                                    toast.classList.add('opacity-0', 'translate-y-4');
+                                                    setTimeout(() => toast.remove(), 300);
+                                                }, 3000);
+
+                                            } catch (error) {
+                                                console.error("Save failed:", error);
+                                                const toast = document.createElement('div');
+                                                toast.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-xl z-50 animate-pulse flex items-center gap-2';
+                                                toast.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Failed to save ranks';
+                                                document.body.appendChild(toast);
+                                                setTimeout(() => toast.remove(), 3000);
+                                            } finally {
+                                                setIsSavingRanks(false);
+                                            }
+                                        }}
+                                        disabled={isSavingRanks}
+                                        className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all"
+                                    >
+                                        {isSavingRanks ? <Loader2 size={16} className="animate-spin mr-2" /> : <Save size={16} className="mr-2" />}
+                                        Save Badges
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                    {((siteSettings.rankConfig && siteSettings.rankConfig.length > 0) ? siteSettings.rankConfig : [
+                                        { label: 'Mortal', image: '/badges/mortal.png', ringColor: 'ring-stone-400' },
+                                        { label: 'Body Tempering', image: '/badges/body_tempering.png', ringColor: 'ring-orange-700' },
+                                        { label: 'Qi Condensation', image: '/badges/qi_condensation.png', ringColor: 'ring-blue-400' },
+                                        { label: 'Foundation', image: '/badges/foundation.png', ringColor: 'ring-yellow-400' },
+                                        { label: 'Golden Core', image: '/badges/golden_core.png', ringColor: 'ring-yellow-500 shadow-gold' }
+                                    ]).map((rank, index) => (
+                                        <div key={index} className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 flex flex-col items-center">
+                                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">{rank.label}</span>
+                                            
+                                            {/* Badge Preview */}
+                                            <div className="w-20 h-20 mb-3 relative flex items-center justify-center">
+                                                <img src={rank.image} alt={rank.label} className="w-full h-full object-contain filter drop-shadow-md" />
+                                            </div>
+
+                                            {/* Ring Color Preview/Edit */}
+                                            <div className="w-full mb-3">
+                                                 <input 
+                                                    type="text" 
+                                                    value={rank.ringColor}
+                                                    onChange={(e) => {
+                                                        const currentConfig = (siteSettings.rankConfig && siteSettings.rankConfig.length > 0) 
+                                                            ? [...siteSettings.rankConfig] 
+                                                            : [
+                                                                { label: 'Mortal', image: '/badges/mortal.png', ringColor: 'ring-stone-400' },
+                                                                { label: 'Body Tempering', image: '/badges/body_tempering.png', ringColor: 'ring-orange-700' },
+                                                                { label: 'Qi Condensation', image: '/badges/qi_condensation.png', ringColor: 'ring-blue-400' },
+                                                                { label: 'Foundation', image: '/badges/foundation.png', ringColor: 'ring-yellow-400' },
+                                                                { label: 'Golden Core', image: '/badges/golden_core.png', ringColor: 'ring-yellow-500 shadow-gold' }
+                                                            ];
+                                                        
+                                                        // Immutable update
+                                                        currentConfig[index] = { ...currentConfig[index], ringColor: e.target.value };
+                                                        setSiteSettings(prev => ({ ...prev, rankConfig: currentConfig }));
+                                                    }}
+                                                    className="w-full text-xs p-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-center"
+                                                    placeholder="Ring Class (e.g. ring-red-500)"
+                                                 />
+                                            </div>
+
+                                            {/* Upload Button */}
+                                            <label className="cursor-pointer flex items-center justify-center w-full px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+                                                <Upload size={12} className="mr-1.5" /> Change Icon
+                                                <input 
+                                                    type="file" 
+                                                    className="hidden" 
+                                                    accept="image/*"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            const reader = new FileReader();
+                                                            reader.onloadend = () => {
+                                                                const currentConfig = (siteSettings.rankConfig && siteSettings.rankConfig.length > 0) 
+                                                                    ? [...siteSettings.rankConfig] 
+                                                                    : [
+                                                                        { label: 'Mortal', image: '/badges/mortal.png', ringColor: 'ring-stone-400' },
+                                                                        { label: 'Body Tempering', image: '/badges/body_tempering.png', ringColor: 'ring-orange-700' },
+                                                                        { label: 'Qi Condensation', image: '/badges/qi_condensation.png', ringColor: 'ring-blue-400' },
+                                                                        { label: 'Foundation', image: '/badges/foundation.png', ringColor: 'ring-yellow-400' },
+                                                                        { label: 'Golden Core', image: '/badges/golden_core.png', ringColor: 'ring-yellow-500 shadow-gold' }
+                                                                    ];
+
+                                                                // Immutable update
+                                                                currentConfig[index] = { ...currentConfig[index], image: reader.result as string };
+                                                                setSiteSettings(prev => ({ ...prev, rankConfig: currentConfig }));
+                                                            };
+                                                            reader.readAsDataURL(file);
+                                                        }
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
@@ -2389,6 +2618,8 @@ export const Admin: React.FC = () => {
                             ))}
                         </div>
                      </div>
+
+
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* Tag Cloud Editor */}

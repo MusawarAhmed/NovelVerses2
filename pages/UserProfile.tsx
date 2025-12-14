@@ -2,8 +2,10 @@ import React, { useContext, useState, useEffect } from 'react';
 import { AppContext } from '../App';
 import { NovelService } from '../services/novelService';
 import { Link } from 'react-router-dom';
-import { BookOpen, Coins, CreditCard, Clock, ChevronRight, Bookmark, Edit2, Save, X, RefreshCw, Check, AlertCircle, Eye, EyeOff, Trophy } from 'lucide-react';
+import { BookOpen, Coins, CreditCard, Clock, ChevronRight, Bookmark, Edit2, Save, X, RefreshCw, Check, AlertCircle, Eye, EyeOff, Trophy, Camera, Upload, Image as ImageIcon, Loader2, Sparkles } from 'lucide-react';
 import { FadeIn, ScaleButton } from '../components/Anim';
+
+
 
 export const UserProfile: React.FC = () => {
   const { user, refreshUser, siteSettings } = useContext(AppContext);
@@ -21,6 +23,20 @@ export const UserProfile: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [avatarTab, setAvatarTab] = useState<'upload' | 'select'>('upload');
+  const [isSaving, setIsSaving] = useState(false);
+  const [showRankGuide, setShowRankGuide] = useState(false);
+
+  const PRESET_AVATARS = [
+      'https://api.dicebear.com/7.x/adventurer/svg?seed=Felix',
+      'https://api.dicebear.com/7.x/adventurer/svg?seed=Aneka',
+      'https://api.dicebear.com/7.x/adventurer/svg?seed=Willow',
+      'https://api.dicebear.com/7.x/adventurer/svg?seed=Emery',
+      'https://api.dicebear.com/7.x/adventurer/svg?seed=Destiny',
+      'https://api.dicebear.com/7.x/lorelei/svg?seed=Sasha',
+      'https://api.dicebear.com/7.x/lorelei/svg?seed=Milo',
+      'https://api.dicebear.com/7.x/bottts/svg?seed=Simba',
+  ];
 
   useEffect(() => {
       if (user) {
@@ -28,10 +44,26 @@ export const UserProfile: React.FC = () => {
               username: user.username,
               email: user.email,
               newPassword: '',
-              confirmPassword: ''
+              confirmPassword: '',
+              avatar: user.avatar || ''
           });
       }
   }, [user, isEditing]);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          if (file.size > 5000000) { // 5MB limit
+              alert("File is too large (max 5MB)");
+              return;
+          }
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              setFormData(prev => ({ ...prev, avatar: reader.result as string }));
+          };
+          reader.readAsDataURL(file);
+      }
+  };
 
   if (!user) return null;
 
@@ -126,10 +158,12 @@ export const UserProfile: React.FC = () => {
       const updatedUser = {
           username: formData.username,
           email: formData.email,
+          avatar: formData.avatar,
           ...(formData.newPassword ? { password: formData.newPassword } : {})
       };
 
       try {
+          setIsSaving(true);
           await NovelService.updateProfile(updatedUser);
           refreshUser();
           setIsEditing(false);
@@ -137,6 +171,8 @@ export const UserProfile: React.FC = () => {
           setTimeout(() => setSaveMessage(null), 3000);
       } catch (err) {
           alert("Failed to update profile.");
+      } finally {
+          setIsSaving(false);
       }
   };
 
@@ -159,6 +195,26 @@ export const UserProfile: React.FC = () => {
       { met: /[!@#$%^&*(),.?":{}|<>]/.test(formData.newPassword), text: "At least one special character (!@#$%)" }
   ];
 
+  // Rank Logic (Dynamic)
+  const getRankData = (rankLabel: string) => {
+      const defaultConfig = [
+        { label: 'Mortal', image: '/badges/mortal.png', ringColor: 'ring-stone-400' },
+        { label: 'Body Tempering', image: '/badges/body_tempering.png', ringColor: 'ring-orange-700' },
+        { label: 'Qi Condensation', image: '/badges/qi_condensation.png', ringColor: 'ring-blue-400' },
+        { label: 'Foundation', image: '/badges/foundation.png', ringColor: 'ring-yellow-400' },
+        { label: 'Golden Core', image: '/badges/golden_core.png', ringColor: 'ring-yellow-500 shadow-gold' }
+      ];
+      
+      const config = (siteSettings.rankConfig && siteSettings.rankConfig.length > 0) 
+        ? siteSettings.rankConfig 
+        : defaultConfig;
+
+      return config.find(r => r.label === rankLabel) || config[0]; // Fallback to Mortal
+  };
+
+  const currentRank = user.cultivationRank || 'Mortal';
+  const rankData = getRankData(currentRank);
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
       
@@ -179,12 +235,20 @@ export const UserProfile: React.FC = () => {
             <div className="flex flex-col md:flex-row items-center justify-between">
                 <div className="flex items-center mb-6 md:mb-0 w-full md:w-auto">
                     <div className="relative">
-                        <div className="w-24 h-24 bg-gradient-to-br from-primary to-indigo-700 rounded-full flex items-center justify-center text-4xl text-white font-bold mr-8 shadow-xl shadow-indigo-500/30 ring-4 ring-white dark:ring-slate-800">
-                            {user.username[0].toUpperCase()}
+                        <div className={`w-24 h-24 bg-gradient-to-br from-primary to-indigo-700 rounded-full flex items-center justify-center overlow-hidden text-4xl text-white font-bold mr-8 shadow-xl shadow-indigo-500/30 ring-4 ${rankData.ringColor} dark:ring-offset-slate-900 ring-offset-2 transition-all duration-300`}>
+                           {user.avatar ? (
+                               <img src={user.avatar} alt={user.username} className="w-full h-full object-cover rounded-full" />
+                           ) : (
+                                user.username[0].toUpperCase()
+                           )}
                         </div>
-                        {/* Rank Badge */}
-                        <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full shadow-lg border-2 border-white dark:border-slate-800 mr-8">
-                            {user.cultivationRank || 'Mortal'}
+                        {/* Rank Badge Image */}
+                        <div 
+                            onClick={() => setShowRankGuide(true)}
+                            className="absolute -bottom-2 -right-4 w-12 h-12 mr-8 filter drop-shadow-lg transform hover:scale-110 transition-transform cursor-pointer z-10" 
+                            title="Click for Rank Guide"
+                        >
+                            <img src={rankData.image} alt={rankData.label} className="w-full h-full object-contain" />
                         </div>
                     </div>
                     
@@ -196,19 +260,41 @@ export const UserProfile: React.FC = () => {
                             <span className="capitalize px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-md text-xs font-bold">{user.role}</span>
                         </p>
                         
-                        {/* XP Progress Bar */}
-                        <div className="mb-4 max-w-xs">
-                            <div className="flex justify-between text-xs font-bold mb-1 text-slate-500">
-                                <span>XP: {user.xp || 0}</span>
-                                <span>Next Rank: 100</span> {/* Simplified logic for demo */}
+                            <div className="mb-4 max-w-sm">
+                                <div className="flex justify-between text-xs font-bold mb-1 text-slate-500">
+                                    <span>XP: {user.xp || 0}</span>
+                                    <div>
+                                        <span className="mr-2 text-indigo-600 font-bold">{siteSettings?.xpConversionRate || 100} XP = 1 Coin</span>
+                                        <span className="text-slate-400">Progress: {(user.xp || 0) % 1000} / 1000</span>
+                                    </div>
+                                </div>
+                                <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mb-2">
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-blue-400 to-purple-500" 
+                                        style={{ width: `${Math.min(((user.xp || 0) % 1000) / 1000 * 100, 100)}%` }} 
+                                    />
+                                </div>
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={async () => {
+                                            if (confirm(`Convert available XP to Coins? This will deduct XP.\n\nRate: ${siteSettings?.xpConversionRate || 100} XP = 1 Coin`)) {
+                                                try {
+                                                    const res = await NovelService.convertXP();
+                                                    alert(`Successfully converted! +${res.converted} Coins`);
+                                                } catch (e: any) {
+                                                    alert(e.response?.data?.msg || "Conversion failed");
+                                                } finally {
+                                                    refreshUser();
+                                                }
+                                            }
+                                        }}
+                                        disabled={(user.xp || 0) < (siteSettings?.xpConversionRate || 100)}
+                                        className="text-xs flex items-center bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                                    >
+                                        <RefreshCw size={12} className="mr-1.5" /> Convert XP to Coins
+                                    </button>
+                                </div>
                             </div>
-                            <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                <div 
-                                    className="h-full bg-gradient-to-r from-blue-400 to-purple-500" 
-                                    style={{ width: `${Math.min(((user.xp || 0) % 100) / 100 * 100, 100)}%` }} // Simplified progress logic
-                                />
-                            </div>
-                        </div>
 
                         <div className="flex gap-3">
                             <div className="inline-flex items-center px-4 py-2 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-sm font-bold">
@@ -334,6 +420,68 @@ export const UserProfile: React.FC = () => {
                                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-primary outline-none transition-all"
                             />
                         </div>
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Profile Avatar</label>
+                            
+                            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <div className="flex gap-4 mb-4">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setAvatarTab('upload')}
+                                        className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${avatarTab === 'upload' ? 'bg-white dark:bg-slate-800 shadow text-primary' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                    >
+                                        <Upload size={16} /> Upload Image
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setAvatarTab('select')}
+                                        className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${avatarTab === 'select' ? 'bg-white dark:bg-slate-800 shadow text-primary' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                    >
+                                        <ImageIcon size={16} /> Choose Avatar
+                                    </button>
+                                </div>
+
+                                {avatarTab === 'upload' ? (
+                                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-6 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer relative">
+                                        <input 
+                                            type="file" 
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        />
+                                        {formData.avatar ? (
+                                            <div className="relative w-20 h-20 mb-2">
+                                                <img src={formData.avatar} alt="Preview" className="w-full h-full object-cover rounded-full" />
+                                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 hover:opacity-100 text-white font-bold text-xs">Change</div>
+                                            </div>
+                                        ) : (
+                                            <div className="w-12 h-12 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 mb-2">
+                                                <Camera size={24} />
+                                            </div>
+                                        )}
+                                        <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                                            {formData.avatar ? "Click to replace" : "Click to upload image"}
+                                        </p>
+                                        <p className="text-xs text-slate-400 mt-1">Max 5MB</p>
+                                    </div>
+                                ) : (
+                                    // XP & Level
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {PRESET_AVATARS.map((url, i) => (
+                                            <button
+                                                key={i}
+                                                type="button"
+                                                onClick={() => setFormData(prev => ({ ...prev, avatar: url }))}
+                                                className={`aspect-square rounded-full border-2 overflow-hidden hover:opacity-80 transition-opacity ${formData.avatar === url ? 'border-primary ring-2 ring-primary ring-offset-2 dark:ring-offset-slate-800' : 'border-slate-200 dark:border-slate-700'}`}
+                                            >
+                                                <img src={url} alt={`Avatar ${i+1}`} className="w-full h-full" />
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Right Column: Password Management */}
@@ -412,14 +560,20 @@ export const UserProfile: React.FC = () => {
                             type="button" 
                             onClick={() => setIsEditing(false)}
                             className="px-6 py-2.5 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
+                            disabled={isSaving}
                         >
                             Cancel
                         </button>
                         <button 
                             type="submit"
-                            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20 flex items-center"
+                            disabled={isSaving}
+                            className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20 flex items-center ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
-                            <Save size={18} className="mr-2" /> Save Changes
+                            {isSaving ? (
+                                <><Loader2 size={18} className="mr-2 animate-spin" /> Saving...</>
+                            ) : (
+                                <><Save size={18} className="mr-2" /> Save Changes</>
+                            )}
                         </button>
                     </div>
                 </form>
@@ -490,6 +644,64 @@ export const UserProfile: React.FC = () => {
             </div>
         )}
       </div>
+      {/* Rank Guide Modal */}
+      {showRankGuide && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowRankGuide(false)}>
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-800 overflow-hidden" onClick={e => e.stopPropagation()}>
+                  <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                      <div>
+                          <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
+                              <Trophy className="mr-2 text-yellow-500" size={24} /> Rank System
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-1">Earn XP to ascend through cultivation realms</p>
+                      </div>
+                      <button onClick={() => setShowRankGuide(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
+                          <X size={20} className="text-slate-500" />
+                      </button>
+                  </div>
+                  
+                  <div className="p-6 max-h-[60vh] overflow-y-auto">
+                      <div className="mb-6 bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/30">
+                          <h4 className="font-bold text-indigo-900 dark:text-indigo-300 mb-2 text-sm flex items-center">
+                              <Sparkles size={16} className="mr-2" /> How to Gain XP
+                          </h4>
+                          <ul className="text-xs space-y-2 text-indigo-800 dark:text-indigo-200">
+                              <li className="flex items-center"><Check size={12} className="mr-2" /> Read Chapters (+10 XP)</li>
+                              <li className="flex items-center"><Check size={12} className="mr-2" /> Daily Check-in (+50 XP)</li>
+                              <li className="flex items-center"><Check size={12} className="mr-2" /> Post Comments (+5 XP)</li>
+                          </ul>
+                      </div>
+
+                      <h4 className="font-bold text-slate-900 dark:text-white mb-4 text-sm uppercase tracking-wider">Realm Hierarchy</h4>
+                      <div className="space-y-3">
+                          {((siteSettings.rankConfig && siteSettings.rankConfig.length > 0) ? siteSettings.rankConfig : [
+                              { label: 'Mortal', image: '/badges/mortal.png', ringColor: 'ring-stone-400' },
+                              { label: 'Body Tempering', image: '/badges/body_tempering.png', ringColor: 'ring-orange-700' },
+                              { label: 'Qi Condensation', image: '/badges/qi_condensation.png', ringColor: 'ring-blue-400' },
+                              { label: 'Foundation', image: '/badges/foundation.png', ringColor: 'ring-yellow-400' },
+                              { label: 'Golden Core', image: '/badges/golden_core.png', ringColor: 'ring-yellow-500 shadow-gold' }
+                          ]).map((rank, index) => (
+                              <div key={index} className={`flex items-center p-3 rounded-xl border transition-all ${user.cultivationRank === rank.label ? 'bg-primary/5 border-primary dark:bg-primary/10 dark:border-primary ring-1 ring-primary' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 opacity-80'}`}>
+                                  <div className={`w-12 h-12 flex-shrink-0 flex items-center justify-center bg-white dark:bg-slate-700 rounded-full border-2 mr-4 ${rank.ringColor?.replace('shadow-gold', '') || 'border-slate-200'}`}>
+                                      <img src={rank.image} alt={rank.label} className="w-8 h-8 object-contain" />
+                                  </div>
+                                  <div className="flex-1">
+                                      <div className="flex justify-between items-center mb-1">
+                                          <h5 className={`font-bold ${user.cultivationRank === rank.label ? 'text-primary' : 'text-slate-700 dark:text-slate-200'}`}>{rank.label}</h5>
+                                          {user.cultivationRank === rank.label && <span className="text-[10px] font-bold bg-primary text-white px-2 py-0.5 rounded-full">CURRENT</span>}
+                                      </div>
+                                      <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                                          <div className={`h-full ${index < 3 ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'}`} style={{ width: '100%' }}></div>
+                                      </div>
+                                      <p className="text-[10px] text-slate-400 mt-1">Tier {index + 1}</p>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

@@ -70,7 +70,7 @@ export const Layout: React.FC = () => {
   const handleLogout = () => {
     setShowUserMenu(false);
     logout();
-    navigate('/');
+    navigate('/auth');
   };
 
   return (
@@ -192,8 +192,12 @@ export const Layout: React.FC = () => {
                       onClick={() => setShowUserMenu(!showUserMenu)}
                       className="flex items-center space-x-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:text-primary dark:hover:text-white transition-colors focus:outline-none"
                     >
-                      <div className="w-8 h-8 bg-indigo-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-primary dark:text-slate-200 ring-2 ring-transparent hover:ring-primary/50 transition-all">
-                        {user.username[0].toUpperCase()}
+                      <div className="w-8 h-8 bg-indigo-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-primary dark:text-slate-200 ring-2 ring-transparent hover:ring-primary/50 transition-all overflow-hidden">
+                        {user.avatar ? (
+                            <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
+                        ) : (
+                            user.username[0].toUpperCase()
+                        )}
                       </div>
                     </button>
                     

@@ -22,7 +22,11 @@ router.post('/register', async (req, res) => {
     const payload = { id: user.id, role: user.role };
     jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 36000 }, (err, token) => {
       if (err) throw err;
-      res.json({ token, user: { id: user.id, username, email, role: user.role, coins: user.coins } });
+      
+      const userObj = user.toObject();
+      delete userObj.password;
+
+      res.json({ token, user: userObj });
     });
   } catch (err) {
     console.error(err.message);
@@ -43,17 +47,13 @@ router.post('/login', async (req, res) => {
     const payload = { id: user.id, role: user.role };
     jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 36000 }, (err, token) => {
       if (err) throw err;
+      
+      const userObj = user.toObject();
+      delete userObj.password;
+      
       res.json({ 
           token, 
-          user: { 
-              id: user.id, 
-              username: user.username, 
-              email, 
-              role: user.role, 
-              coins: user.coins, 
-              bookmarks: user.bookmarks,
-              purchasedChapters: user.purchasedChapters
-          } 
+          user: userObj
       });
     });
   } catch (err) {

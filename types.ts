@@ -86,6 +86,12 @@ export interface SiteSettings {
   enableTTS: boolean; // New setting for Text-to-Speech
   showBookSlider: boolean; // New setting for 3D Book Slider
   showTopUp: boolean; // New setting for Top Up Wallet Button
+  xpConversionRate?: number;
+  rankConfig?: {
+      label: string;
+      image: string;
+      ringColor: string;
+  }[];
   theme?: string;
   themeSettings?: {
       primaryColor: string;

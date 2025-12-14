@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { BookOpen } from 'lucide-react';
 
 export const LoadingOverlay: React.FC = () => {
   return (
@@ -11,11 +12,9 @@ export const LoadingOverlay: React.FC = () => {
         className="relative"
       >
         <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full animate-pulse" />
-        <img 
-          src="/assets/novelverse_splash_logo.png" 
-          alt="Loading..." 
-          className="w-32 h-32 object-contain relative z-10 drop-shadow-2xl"
-        />
+        <div className="relative z-10 w-32 h-32 flex items-center justify-center bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20">
+             <BookOpen size={64} className="text-primary animate-bounce opacity-80" />
+        </div>
       </motion.div>
       <motion.div 
         initial={{ opacity: 0 }}

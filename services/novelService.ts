@@ -76,6 +76,10 @@ export const NovelService = {
         const res = await api.post('/users/add-coins', { amount });
         return res.data;
     },
+    convertXP: async () => {
+        const res = await api.post('/users/convert-xp');
+        return res.data;
+    },
     saveReadingHistory: async (novelId: string, chapterId: string) => {
         const res = await api.post('/users/history', { novelId, chapterId });
         return res.data;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ToastProvider } from './components/Toast';
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
@@ -144,7 +144,7 @@ export default function App() {
   return (
     <ToastProvider>
         <AppContext.Provider value={{ user, login, logout, refreshUser, theme, setTheme, siteSettings }}>
-        <HashRouter>
+        <BrowserRouter>
             <ScrollToTop />
             <Routes>
             <Route path="/" element={<Layout />}>
@@ -163,7 +163,7 @@ export default function App() {
                 <Route path="privacy" element={<Privacy />} />
             </Route>
             </Routes>
-        </HashRouter>
+        </BrowserRouter>
         </AppContext.Provider>
     </ToastProvider>
   );

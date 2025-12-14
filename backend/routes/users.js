@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Novel = require('../models/Novel');
 const Chapter = require('../models/Chapter');
 const Transaction = require('../models/Transaction');
+const SiteSetting = require('../models/SiteSetting');
 const bcrypt = require('bcryptjs');
 const { auth, admin } = require('../middleware/authMiddleware');
 
@@ -41,14 +42,25 @@ router.post('/', auth, admin, async (req, res) => {
 // Update Profile
 router.put('/profile', auth, async (req, res) => {
     try {
-        const { username, avatar } = req.body;
+        const { username, avatar, email } = req.body;
         const user = await User.findById(req.user.id);
+        
         if (username) user.username = username;
         if (avatar) user.avatar = avatar;
+        if (email) user.email = email; // Allow email update
+        
         await user.save();
-        res.json(user);
+        
+        // Return user without password
+        const userObj = user.toObject();
+        delete userObj.password;
+        
+        res.json(userObj);
     } catch (err) {
         console.error(err.message);
+        if (err.code === 11000) {
+            return res.status(400).json({ msg: 'Username or Email already exists' });
+        }
         res.status(500).send('Server Error');
     }
 });
@@ -151,7 +163,46 @@ router.post('/add-coins', auth, async (req, res) => {
     }
 });
 
-// Save Reading History
+// Convert XP to Coins
+router.post('/convert-xp', auth, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        const settingsDoc = await SiteSetting.findOne({ key: 'global' });
+        const rate = settingsDoc && settingsDoc.settings.xpConversionRate ? settingsDoc.settings.xpConversionRate : 100;
+
+        // Calculate maximum coins possible
+        // Formula: Coins = floor(XP / Rate)
+        // Deduct: Coins * Rate
+        
+        const possibleCoins = Math.floor(user.xp / rate);
+        
+        if (possibleCoins < 1) {
+            return res.status(400).json({ msg: `Not enough XP. Need at least ${rate} XP for 1 Coin.` });
+        }
+
+        const xpToDeduct = possibleCoins * rate;
+
+        user.xp -= xpToDeduct;
+        user.coins += possibleCoins;
+        
+        await user.save();
+
+        const transaction = new Transaction({
+            userId: user.id,
+            amount: possibleCoins,
+            type: 'exchange',
+            description: `Converted ${xpToDeduct} XP to ${possibleCoins} Coins`
+        });
+        await transaction.save();
+
+        res.json({ success: true, xp: user.xp, coins: user.coins, converted: possibleCoins, rate });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// Save Reading History & Award XP
 router.post('/history', auth, async (req, res) => {
     try {
         const { novelId, chapterId } = req.body;
@@ -172,8 +223,34 @@ router.post('/history', auth, async (req, res) => {
             user.readingHistory = user.readingHistory.slice(0, 20);
         }
 
+        // --- XP & RANK SYSTEM ---
+        const now = Date.now();
+        const lastGain = user.lastXpGain ? new Date(user.lastXpGain).getTime() : 0;
+        const timeDiff = now - lastGain;
+
+        // Award XP every 60 seconds of reading activity
+        if (timeDiff > 60 * 1000) {
+            const xpGained = 10;
+            user.xp = (user.xp || 0) + xpGained;
+            user.totalXP = (user.totalXP || 0) + xpGained;
+            user.lastXpGain = now;
+
+            // Rank Logic (Based on Total Lifetime XP)
+            const currentTotal = user.totalXP;
+            let newRank = 'Mortal';
+            if (currentTotal >= 10000) newRank = 'Golden Core';
+            else if (currentTotal >= 2500) newRank = 'Foundation Establishment';
+            else if (currentTotal >= 500) newRank = 'Qi Condensation';
+            else if (currentTotal >= 100) newRank = 'Body Tempering';
+
+            if (newRank !== user.cultivationRank) {
+                user.cultivationRank = newRank;
+                // Optional: Notification for rank up could go here
+            }
+        }
+
         await user.save();
-        res.json(user.readingHistory);
+        res.json({ history: user.readingHistory, xp: user.xp, rank: user.cultivationRank });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');

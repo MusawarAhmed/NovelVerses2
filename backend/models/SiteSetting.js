@@ -15,6 +15,12 @@ const SiteSettingSchema = new mongoose.Schema({
         enableTTS: { type: Boolean, default: true },
         showBookSlider: { type: Boolean, default: true },
         showTopUp: { type: Boolean, default: true },
+        xpConversionRate: { type: Number, default: 100 }, // XP required for 1 Coin
+        rankConfig: [{
+            label: { type: String },
+            image: { type: String }, // Base64 or URL
+            ringColor: { type: String }
+        }],
         theme: { type: String, default: 'default' }, // 'default' or 'unique'
         themeSettings: {
             primaryColor: { type: String, default: '#4f46e5' }, // Indigo-600
