@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MockBackendService } from '../services/mockBackend';
+import { NovelService } from '../services/novelService';
 import { Novel } from '../types';
 import { Trophy, TrendingUp, Flame, Compass, Star, Eye, BookOpen } from 'lucide-react';
 import { FadeIn, StaggerContainer, StaggerItem } from '../components/Anim';
@@ -10,6 +10,7 @@ export const Browse: React.FC = () => {
   const { type } = useParams<{ type: string }>();
   const [novels, setNovels] = useState<Novel[]>([]);
   const [activeTab, setActiveTab] = useState<'Power' | 'Collection' | 'Active'>('Power');
+  const [loading, setLoading] = useState(true);
 
   // Determine page title and icon based on type
   const getHeaderInfo = () => {
@@ -28,22 +29,33 @@ export const Browse: React.FC = () => {
   const { title, icon: Icon, color } = getHeaderInfo();
 
   useEffect(() => {
-    let data: Novel[] = [];
-    switch (type) {
-      case 'featured':
-        data = MockBackendService.getWeeklyFeatured();
-        break;
-      case 'rising':
-        data = MockBackendService.getRisingStars();
-        break;
-      case 'rankings':
-        data = MockBackendService.getRankedNovels(activeTab);
-        break;
-      default:
-        data = MockBackendService.getNovels();
-        break;
-    }
-    setNovels(data);
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            let data: Novel[] = [];
+            switch (type) {
+              case 'featured':
+                data = await NovelService.getWeeklyFeatured();
+                break;
+              case 'rising':
+                data = await NovelService.getRisingStars();
+                break;
+              case 'rankings':
+                data = await NovelService.getRankedNovels(activeTab);
+                break;
+              case 'all':
+              default:
+                data = await NovelService.getNovels();
+                break;
+            }
+            setNovels(data);
+        } catch (error) {
+            console.error("Failed to fetch novels", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+    fetchData();
   }, [type, activeTab]);
 
   return (

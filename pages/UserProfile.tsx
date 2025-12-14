@@ -4,8 +4,9 @@ import { NovelService } from '../services/novelService';
 import { Link } from 'react-router-dom';
 import { BookOpen, Coins, CreditCard, Clock, ChevronRight, Bookmark, Edit2, Save, X, RefreshCw, Check, AlertCircle, Eye, EyeOff, Trophy, Camera, Upload, Image as ImageIcon, Loader2, Sparkles } from 'lucide-react';
 import { FadeIn, ScaleButton } from '../components/Anim';
-
-
+import { Bookshelf } from '../components/Bookshelf';
+import { GenreRadar } from '../components/GenreRadar';
+import { Palette, Lock } from 'lucide-react';
 
 export const UserProfile: React.FC = () => {
   const { user, refreshUser, siteSettings } = useContext(AppContext);
@@ -26,6 +27,8 @@ export const UserProfile: React.FC = () => {
   const [avatarTab, setAvatarTab] = useState<'upload' | 'select'>('upload');
   const [isSaving, setIsSaving] = useState(false);
   const [showRankGuide, setShowRankGuide] = useState(false);
+  const [showSkinSelector, setShowSkinSelector] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   const PRESET_AVATARS = [
       'https://api.dicebear.com/7.x/adventurer/svg?seed=Felix',
@@ -616,34 +619,158 @@ export const UserProfile: React.FC = () => {
         )}
       </div>
 
-      {/* Library / Bookmarks */}
-      <div>
-        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center">
-            <Bookmark size={24} className="mr-2 text-secondary"/> My Library
-        </h3>
-        
-        {bookmarks.length === 0 ? (
-            <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
-                <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />
-                <p className="text-slate-500">Your library is empty.</p>
-                <Link to="/browse/all" className="text-primary font-medium mt-2 inline-block hover:underline">Browse Novels</Link>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Sidebar: Stats & Radar */}
+          <div className="md:col-span-1 space-y-6">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+                  <GenreRadar stats={(user.genreStats && Object.keys(user.genreStats).length > 0) ? user.genreStats : (() => {
+                      // Backfill from history if empty
+                      const calculated: Record<string, number> = {};
+                      if (historyItems.length > 0) {
+                          historyItems.forEach((item: any) => {
+                              if (item.novel) {
+                                  const genre = item.novel.tags?.[0] || item.novel.category || 'Other';
+                                  calculated[genre] = (calculated[genre] || 0) + 50; // Assume 50XP per history entry
+                              }
+                          });
+                      }
+                      // If still empty and bookmarks exist, use them
+                      if (Object.keys(calculated).length === 0 && bookmarks.length > 0) {
+                           bookmarks.forEach((novel: any) => {
+                               const genre = novel.tags?.[0] || novel.category || 'Other';
+                               calculated[genre] = (calculated[genre] || 0) + 20; // Assume 20XP interest
+                           });
+                      }
+                      return calculated;
+                  })()} />
+              </div>
+          </div>
+
+          {/* Main Content: Bookshelf */}
+          <div className="md:col-span-2">
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
+                    <Bookmark size={24} className="mr-2 text-secondary"/> My Library
+                </h3>
+                <button 
+                    onClick={() => setShowSkinSelector(true)}
+                    className="flex items-center text-xs font-medium text-primary bg-primary/10 px-3 py-1.5 rounded-full hover:bg-primary/20 transition-colors"
+                >
+                    <Palette size={14} className="mr-1.5" /> Customize Shelf
+                </button>
             </div>
-        ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                {bookmarks.map((novel: any) => (
-                    <Link key={novel.id} to={`/novel/${novel.id}`} className="group block">
-                        <div className="relative aspect-[2/3] rounded-lg overflow-hidden mb-3 shadow-sm group-hover:shadow-md transition-all">
-                            <img src={novel.coverUrl} alt={novel.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            {/* Bookshelf Section */}
+            {(() => {
+                // Logic: If bookmarks exist, show them.
+                // If NO bookmarks but History, show History (Unique Novels).
+                // If NEITHER, show empty state.
+                
+                let displayNovels = bookmarks;
+                let isHistoryView = false;
+
+                if (bookmarks.length === 0 && historyItems.length > 0) {
+                     const uniqueMap = new Map();
+                     historyItems.forEach((h: any) => {
+                         if (h.novel && !uniqueMap.has(h.novel.id)) {
+                             uniqueMap.set(h.novel.id, h.novel);
+                         }
+                     });
+                     displayNovels = Array.from(uniqueMap.values());
+                     isHistoryView = true;
+                }
+
+                if (displayNovels.length === 0) {
+                    return (
+                        <div className="relative">
+                            <Bookshelf novels={[]} skin={user?.shelfSkin} />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-30">
+                                <div className="bg-black/40 backdrop-blur-sm p-8 rounded-2xl text-center border border-white/10 shadow-2xl animate-fade-in pointer-events-auto">
+                                    <BookOpen size={48} className="text-white/80 mx-auto mb-4" />
+                                    <h4 className="text-xl font-bold text-white mb-2 shadow-black drop-shadow-md">The library awaits your scriptures...</h4>
+                                    <Link to="/browse/all" className="bg-primary hover:bg-indigo-600 text-white font-bold py-2 px-6 rounded-full transition-colors border border-indigo-400/30 shadow-[0_0_20px_rgba(79,70,229,0.3)]">
+                                        Browse Library
+                                    </Link>
+                                </div>
+                            </div>
                         </div>
-                        <h4 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-2 group-hover:text-primary transition-colors">{novel.title}</h4>
-                        <p className="text-xs text-slate-500 mt-1">
-                            {novel.category}
-                        </p>
-                    </Link>
-                ))}
-            </div>
-        )}
+                    );
+                }
+
+                return (
+                    <div className="relative">
+                        {isHistoryView && (
+                            <div className="absolute top-0 right-0 z-20 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md">
+                                Displaying History
+                            </div>
+                        )}
+                        <Bookshelf novels={displayNovels} skin={user?.shelfSkin} />
+                    </div>
+                );
+            })()}
+          </div>
       </div>
+      {/* Skin Selector Modal */}
+      {showSkinSelector && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowSkinSelector(false)}>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-800 overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                    <h3 className="font-bold text-lg dark:text-white">Customize Bookshelf</h3>
+                    <button onClick={() => setShowSkinSelector(false)}><X size={20} className="text-slate-500" /></button>
+                </div>
+                <div className="p-4 space-y-3">
+                    {[
+                        { id: 'classic_wood', label: 'Classic Wood', desc: 'Timeless oak finish.' },
+                        { id: 'magical_archive', label: 'Magical Archive', desc: 'Unlock with 500 Fantasy XP.' },
+                        { id: 'data_vault', label: 'Data Vault', desc: 'Unlock with 500 Sci-Fi XP.' },
+                        { id: 'haunted_mahogany', label: 'Haunted Mahogany', desc: 'Unlock with 500 Horror XP.' },
+                        { id: 'sakura_dream', label: 'Sakura Dream', desc: 'Unlock with 500 Romance XP.' }
+                    ].map(skin => {
+                        // Admins unlock everything by default
+                        const isUnlocked = user?.role === 'admin' || user?.unlockedSkins?.includes(skin.id) || skin.id === 'classic_wood';
+                        const isSelected = user?.shelfSkin === skin.id;
+                        
+                        return (
+                            <button
+                                key={skin.id}
+                                disabled={!isUnlocked}
+                                onClick={async () => {
+                                    if(!isUnlocked) return;
+                                    try {
+                                        // Optimistic update
+                                        if (user) user.shelfSkin = skin.id; 
+                                        setShowSkinSelector(false);
+                                        await NovelService.updateShelfSkin(skin.id); // Need to implement this service method
+                                        refreshUser();
+                                    } catch(e) { console.error(e); }
+                                }}
+                                className={`w-full flex items-center p-3 rounded-xl border text-left transition-all ${
+                                    isSelected 
+                                    ? 'border-primary bg-primary/5 ring-1 ring-primary' 
+                                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                } ${!isUnlocked ? 'opacity-60 grayscale' : ''}`}
+                            >
+                                <div className={`w-10 h-10 rounded-lg mr-3 flex-shrink-0 flex items-center justify-center ${
+                                    skin.id === 'classic_wood' ? 'bg-[#5D4037]' :
+                                    skin.id === 'magical_archive' ? 'bg-indigo-900' :
+                                    skin.id === 'data_vault' ? 'bg-slate-900' :
+                                    skin.id === 'haunted_mahogany' ? 'bg-stone-900' : 'bg-pink-100'
+                                }`}>
+                                    {!isUnlocked && <Lock size={16} className="text-white/50" />}
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="font-bold text-sm dark:text-white flex items-center justify-between">
+                                        {skin.label}
+                                        {isSelected && <Check size={16} className="text-primary" />}
+                                    </h4>
+                                    <p className="text-xs text-slate-500">{isUnlocked ? skin.desc : 'Locked - Read more to unlock!'}</p>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+      )}
       {/* Rank Guide Modal */}
       {showRankGuide && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowRankGuide(false)}>

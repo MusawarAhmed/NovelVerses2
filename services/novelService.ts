@@ -68,9 +68,17 @@ export const NovelService = {
         const res = await api.post(`/users/bookmark/${novelId}`);
         return res.data; // Returns updated bookmarks array
     },
+    batchBookmark: async (novelIds: string[]) => {
+        const res = await api.post('/users/bookmarks/batch', { novelIds });
+        return res.data;
+    },
     updateProfile: async (data: any) => {
         const res = await api.put('/users/profile', data);
         return mapId(res.data);
+    },
+    updateShelfSkin: async (skin: string) => {
+        const res = await api.put('/users/skin', { skin });
+        return res.data;
     },
     addCoins: async (amount: number) => {
         const res = await api.post('/users/add-coins', { amount });
@@ -80,8 +88,8 @@ export const NovelService = {
         const res = await api.post('/users/convert-xp');
         return res.data;
     },
-    saveReadingHistory: async (novelId: string, chapterId: string) => {
-        const res = await api.post('/users/history', { novelId, chapterId });
+    saveReadingHistory: async (novelId: string, chapterId: string, genre?: string) => {
+        const res = await api.post('/users/history', { novelId, chapterId, genre });
         return res.data;
     },
     getTransactions: async (): Promise<Transaction[]> => {

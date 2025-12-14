@@ -18,6 +18,9 @@ export interface User {
   readingHistory: ReadingHistoryItem[]; 
   xp?: number;
   cultivationRank?: string;
+  genreStats?: { [key: string]: number };
+  shelfSkin?: string;
+  unlockedSkins?: string[];
 }
 
 export interface Novel {

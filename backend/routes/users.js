@@ -39,6 +39,26 @@ router.post('/', auth, admin, async (req, res) => {
     }
 });
 
+// Update Bookshelf Skin
+router.put('/skin', auth, async (req, res) => {
+    try {
+        const { skin } = req.body;
+        const user = await User.findById(req.user.id);
+        
+        // Check if unlocked OR if user is admin
+        if (user.role === 'admin' || user.unlockedSkins.includes(skin) || skin === 'classic_wood') {
+            user.shelfSkin = skin;
+            await user.save();
+            res.json({ shelfSkin: user.shelfSkin });
+        } else {
+            res.status(403).json({ msg: 'Skin not unlocked' });
+        }
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // Update Profile
 router.put('/profile', auth, async (req, res) => {
     try {
@@ -71,11 +91,10 @@ router.post('/bookmark/:novelId', auth, async (req, res) => {
         const user = await User.findById(req.user.id);
         const novelId = req.params.novelId; 
         
-        // Check if novel exists (optional but good)
-        // const novel = await Novel.findById(novelId);
-        // if (!novel) return res.status(404).json({ msg: 'Novel not found' });
+        // Convert ObjectIds to strings for comparison
+        const bookmarkStrings = user.bookmarks.map(b => b.toString());
 
-        if (user.bookmarks.includes(novelId)) {
+        if (bookmarkStrings.includes(novelId)) {
             user.bookmarks = user.bookmarks.filter(id => id.toString() !== novelId);
         } else {
             user.bookmarks.push(novelId);
@@ -84,6 +103,38 @@ router.post('/bookmark/:novelId', auth, async (req, res) => {
         res.json(user.bookmarks);
     } catch (err) {
         console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// Batch Add Bookmarks
+router.post('/bookmarks/batch', auth, async (req, res) => {
+    try {
+        const { novelIds } = req.body;
+        if (!Array.isArray(novelIds)) return res.status(400).json({ msg: 'novelIds must be an array' });
+
+        const user = await User.findById(req.user.id);
+        const bookmarkStrings = new Set(user.bookmarks.map(b => b.toString()));
+        
+        // Add only new, valid IDs
+        let addedCount = 0;
+        novelIds.forEach(id => {
+            // Validate if it plays nice with Mongoose ObjectId
+            if (mongoose.Types.ObjectId.isValid(id)) {
+                if (!bookmarkStrings.has(id)) {
+                    user.bookmarks.push(id);
+                    bookmarkStrings.add(id); 
+                    addedCount++;
+                }
+            }
+        });
+        
+        if (addedCount > 0) {
+            await user.save();
+        }
+        res.json(user.bookmarks);
+    } catch (err) {
+        console.error('Batch Bookmark Error:', err.message);
         res.status(500).send('Server Error');
     }
 });
@@ -235,6 +286,32 @@ router.post('/history', auth, async (req, res) => {
             user.totalXP = (user.totalXP || 0) + xpGained;
             user.lastXpGain = now;
 
+            // --- Grand Library: Genre Mastery ---
+            const genre = req.body.genre; // Frontend must send this
+            if (genre) {
+                // Initialize if not present (Mongoose Map)
+                if (!user.genreStats) user.genreStats = new Map();
+                
+                const currentGenreXP = user.genreStats.get(genre) || 0;
+                user.genreStats.set(genre, currentGenreXP + xpGained);
+
+                // Check for Skin Unlocks
+                if ((currentGenreXP + xpGained) >= 500) { // Threshold: 500 XP
+                    const skinMap = {
+                        'Fantasy': 'magical_archive',
+                        'Sci-Fi': 'data_vault',
+                        'Horror': 'haunted_mahogany',
+                        'Romance': 'sakura_dream',
+                        'Mystery': 'noir_metal'
+                    };
+                    const skinToUnlock = skinMap[genre];
+                    if (skinToUnlock && !user.unlockedSkins.includes(skinToUnlock)) {
+                        user.unlockedSkins.push(skinToUnlock);
+                        // Could notify user here via response
+                    }
+                }
+            }
+
             // Rank Logic (Based on Total Lifetime XP)
             const currentTotal = user.totalXP;
             let newRank = 'Mortal';
@@ -245,12 +322,16 @@ router.post('/history', auth, async (req, res) => {
 
             if (newRank !== user.cultivationRank) {
                 user.cultivationRank = newRank;
-                // Optional: Notification for rank up could go here
             }
         }
 
         await user.save();
-        res.json({ history: user.readingHistory, xp: user.xp, rank: user.cultivationRank });
+        res.json({ 
+            history: user.readingHistory, 
+            xp: user.xp, 
+            rank: user.cultivationRank,
+            unlockedSkins: user.unlockedSkins
+        });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');

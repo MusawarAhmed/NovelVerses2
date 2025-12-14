@@ -152,7 +152,9 @@ export const Reader: React.FC = () => {
 
               // Save Reading History if user is logged in
               if (currentUser) {
-                await NovelService.saveReadingHistory(novelId, chapterId);
+                // Infer genre from tags or category if not explicit
+                const genre = n.tags && n.tags.length > 0 ? n.tags[0] : (n.category || 'Other');
+                await NovelService.saveReadingHistory(novelId, chapterId, genre);
               }
 
             } else {
