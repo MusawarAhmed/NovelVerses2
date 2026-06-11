@@ -149,7 +149,7 @@ export default function App() {
             <Routes>
             <Route path="/" element={<Layout />}>
                 <Route index element={<Home />} />
-                <Route path="search" element={<Search />} />
+                <Route path="search" element={<Search />}  />
                 <Route path="browse/:type" element={<Browse />} />
                 <Route path="stories/:category" element={<Stories />} />
                 <Route path="novel/:id" element={<NovelDetail />} />
